@@ -1501,24 +1501,6 @@ export default function App() {
             </button>
           </div>
 
-          {/* PROPOSE SPOT */}
-          {pilotId !== null && (
-            <div className="section">
-              <h3 className="section-title">
-                <MapPin size={15} style={{ display: 'inline', marginRight: 6 }} />
-                {t.propose_spot ?? 'Propose a Spot'}
-              </h3>
-              <p className="section-desc">
-                {lang === 'ru'
-                  ? 'Знаешь хорошее место для полётов? Предложи его — после одобрения оно появится на карте.'
-                  : 'Know a great flying spot? Submit it — after admin review it will appear on the map.'}
-              </p>
-              <button className="btn-secondary" style={{ width: '100%' }} onClick={() => setActiveView('propose_spot')}>
-                <MapPin size={15} /> {t.propose_spot ?? 'Propose a Spot'}
-              </button>
-            </div>
-          )}
-
           {/* ABOUT SECTION */}
           <div className="section about-section">
             <h3 className="section-title">{t.about_section}</h3>
