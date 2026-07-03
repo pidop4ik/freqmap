@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Map as MapIcon, User, Settings, Crosshair, Globe, Trash2, Plus, AlertTriangle, Radio, X, ExternalLink, Maximize2, Zap, Weight, Pencil, ChevronDown, ChevronUp, Cpu, Info, Save, ShieldCheck, UserX, Heart, MessageCircle } from 'lucide-react';
+import { Map as MapIcon, User, Settings, Crosshair, Globe, Trash2, Plus, AlertTriangle, Radio, X, ExternalLink, Maximize2, Zap, Weight, Pencil, ChevronDown, ChevronUp, Cpu, Info, Save, ShieldCheck, UserX, Heart, MessageCircle, MapPin } from 'lucide-react';
 
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
@@ -11,6 +11,8 @@ import ConflictAlert from './components/ConflictAlert.jsx';
 import PilotProfileSheet from './components/PilotProfileSheet.jsx';
 import DonateSheet from './components/DonateSheet.jsx';
 import ChatSheet from './components/ChatSheet.jsx';
+import AdminPanel from './components/AdminPanel.jsx';
+import ProposeSpotSheet from './components/ProposeSpotSheet.jsx';
 import { findConflictingMarkers } from './data/frequencies.js';
 
 // Fix Leaflet default icon
@@ -93,6 +95,22 @@ const i18n = {
     accept: 'Принять',
     reject: 'Отклонить',
     remove_friend: 'Удалить из друзей',
+    appearance: 'Внешний вид',
+    accent_color: 'Акцентный цвет',
+    bg_theme: 'Тема фона',
+    spot_approval: 'Одобрение споттов',
+    spots_pending: 'Ожидают одобрения',
+    spots_approved: 'Одобрены',
+    spots_all: 'Все споты',
+    approve: 'Одобрить',
+    spot_name: 'Название спота',
+    spot_desc: 'Описание (опционально)',
+    propose_spot: 'Предложить спот',
+    spot_submitted: 'Спот отправлен на проверку!',
+    admin_manage_admins: 'Управление администраторами',
+    admin_grant: 'Назначить',
+    admin_revoke: 'Снять',
+    admin_stats: 'Статистика',
     donate: 'Донат',
     about_section: 'О проекте',
     about_desc: 'FreqMap — инструмент для FPV пилотов. Помогает координировать частоты на полётных точках, чтобы избежать помех.',
@@ -156,6 +174,22 @@ const i18n = {
     accept: 'Accept',
     reject: 'Reject',
     remove_friend: 'Remove friend',
+    appearance: 'Appearance',
+    accent_color: 'Accent color',
+    bg_theme: 'Background theme',
+    spot_approval: 'Spot approval',
+    spots_pending: 'Pending',
+    spots_approved: 'Approved',
+    spots_all: 'All spots',
+    approve: 'Approve',
+    spot_name: 'Spot name',
+    spot_desc: 'Description (optional)',
+    propose_spot: 'Propose a spot',
+    spot_submitted: 'Spot submitted for review!',
+    admin_manage_admins: 'Manage admins',
+    admin_grant: 'Grant',
+    admin_revoke: 'Revoke',
+    admin_stats: 'Statistics',
     donate: 'Donate',
     about_section: 'About',
     about_desc: 'FreqMap is a tool for FPV pilots. It helps coordinate video frequencies at flying spots to avoid interference.',
@@ -219,6 +253,22 @@ const i18n = {
     accept: 'Akceptuj',
     reject: 'Odrzuć',
     remove_friend: 'Usuń znajomego',
+    appearance: 'Wygląd',
+    accent_color: 'Kolor akcentu',
+    bg_theme: 'Motyw tła',
+    spot_approval: 'Zatwierdzanie spotów',
+    spots_pending: 'Oczekujące',
+    spots_approved: 'Zatwierdzone',
+    spots_all: 'Wszystkie spoty',
+    approve: 'Zatwierdź',
+    spot_name: 'Nazwa spotu',
+    spot_desc: 'Opis (opcjonalnie)',
+    propose_spot: 'Zaproponuj spot',
+    spot_submitted: 'Spot wysłany do weryfikacji!',
+    admin_manage_admins: 'Zarządzaj administratorami',
+    admin_grant: 'Nadaj',
+    admin_revoke: 'Odbierz',
+    admin_stats: 'Statystyki',
     donate: 'Wsparcie',
     about_section: 'O projekcie',
     about_desc: 'FreqMap to narzędzie dla pilotów FPV. Pomaga koordynować częstotliwości wideo na polach lotów, aby uniknąć zakłóceń.',
@@ -310,11 +360,54 @@ const defaultNewDrone = {
 };
 
 // ---------------------------------------------------------------------------
+// Theme system
+// ---------------------------------------------------------------------------
+const ACCENT_PRESETS = [
+  { name: 'Amber',   value: '#e2a15c' }, // default
+  { name: 'Blue',    value: '#60a5fa' },
+  { name: 'Green',   value: '#4ade80' },
+  { name: 'Red',     value: '#f87171' },
+  { name: 'Purple',  value: '#c084fc' },
+  { name: 'Cyan',    value: '#22d3ee' },
+  { name: 'Pink',    value: '#f472b6' },
+  { name: 'White',   value: '#e6e1e5' },
+];
+
+const BG_THEMES = [
+  { name: 'Dark',    bg: '#141218', surface: '#1e1c22', surface2: '#2a2830', surface3: '#332f3a', border: '#3a3740' },
+  { name: 'Darker',  bg: '#0a0a0f', surface: '#111118', surface2: '#1a1a24', surface3: '#222230', border: '#2a2a38' },
+  { name: 'Warm',    bg: '#1a1510', surface: '#231e17', surface2: '#2e261c', surface3: '#3a3022', border: '#443828' },
+  { name: 'Slate',   bg: '#0f1117', surface: '#191c24', surface2: '#22262f', surface3: '#2c303a', border: '#363a45' },
+];
+
+function applyTheme(accent, bgTheme) {
+  const r = document.documentElement;
+  r.style.setProperty('--accent', accent);
+  // Compute dim: accent at 15% opacity
+  const hex = accent.replace('#', '');
+  const ri = parseInt(hex.slice(0,2),16), gi = parseInt(hex.slice(2,4),16), bi = parseInt(hex.slice(4,6),16);
+  r.style.setProperty('--accent-dim', `rgba(${ri},${gi},${bi},0.15)`);
+  if (bgTheme) {
+    r.style.setProperty('--bg',       bgTheme.bg);
+    r.style.setProperty('--surface',  bgTheme.surface);
+    r.style.setProperty('--surface-2', bgTheme.surface2);
+    r.style.setProperty('--surface-3', bgTheme.surface3);
+    r.style.setProperty('--border',   bgTheme.border);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // App
 // ---------------------------------------------------------------------------
 export default function App() {
   // Seed admin account before any state reads
-  if (typeof window !== 'undefined') seedAdminAccount();
+  if (typeof window !== 'undefined') {
+    seedAdminAccount();
+    // Apply saved theme immediately (before first paint)
+    const savedAccent = localStorage.getItem('freq_accent') || '#e2a15c';
+    const savedThemeIdx = Number(localStorage.getItem('freq_theme') || 0);
+    applyTheme(savedAccent, BG_THEMES[savedThemeIdx] ?? BG_THEMES[0]);
+  }
 
   const storedLang = typeof window !== 'undefined' ? (localStorage.getItem('freq_lang') || 'en') : 'en';
   const [lang, setLang] = useState(storedLang);
@@ -351,8 +444,29 @@ export default function App() {
   const [addDroneStep, setAddDroneStep] = useState(1);
   const [newDrone, setNewDrone] = useState({ ...defaultNewDrone });
 
-  // Admin flag — derived from pilotId
+  // Admin flag — derived from pilotId (demo) + server check
   const isAdmin = pilotId === ADMIN_ID;
+  const [serverAdmin, setServerAdmin] = useState(false);
+  const [serverSuper, setServerSuper]  = useState(false);
+  const effectiveAdmin = isAdmin || serverAdmin;
+
+  // Theme
+  const [accentColor, setAccentColor] = useState(() => localStorage.getItem('freq_accent') || '#e2a15c');
+  const [bgThemeIdx, setBgThemeIdx]   = useState(() => Number(localStorage.getItem('freq_theme') || 0));
+
+  // Apply theme on mount and changes
+  useEffect(() => {
+    applyTheme(accentColor, BG_THEMES[bgThemeIdx]);
+  }, [accentColor, bgThemeIdx]);
+
+  const saveAccent = (color) => {
+    setAccentColor(color);
+    localStorage.setItem('freq_accent', color);
+  };
+  const saveBgTheme = (idx) => {
+    setBgThemeIdx(idx);
+    localStorage.setItem('freq_theme', String(idx));
+  };
 
   // Donate sheet
   const [showDonate, setShowDonate] = useState(false);
@@ -360,6 +474,12 @@ export default function App() {
   // Chat sheet
   const [showChat, setShowChat] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+
+  // Admin panel sheet
+  const [showAdmin, setShowAdmin] = useState(false);
+
+  // Propose spot
+  const [showProposeSpot, setShowProposeSpot] = useState(false);
 
   // Demo mode: бэкенд недоступен
   const [demoMode, setDemoMode] = useState(false);
@@ -447,10 +567,15 @@ export default function App() {
   useEffect(() => {
     if (pilotId != null) {
       loadData(pilotId);
+      // Check server-side admin status
+      fetch(`${API_BASE}/admins/check/${pilotId}`)
+        .then((r) => r.ok ? r.json() : null)
+        .then((d) => { if (d) { setServerAdmin(d.is_admin); setServerSuper(d.is_super); } })
+        .catch(() => {});
     }
     const interval = setInterval(() => loadData(pilotId), 15000);
     return () => clearInterval(interval);
-  }, [pilotId]); // FIX: не тянем loadData в deps чтобы не ловить бесконечный цикл
+  }, [pilotId]);
 
   // ---------------------------------------------------------------------------
   // Auth
@@ -1251,6 +1376,40 @@ export default function App() {
             </div>
           </div>
 
+          {/* APPEARANCE */}
+          <div className="section">
+            <h3 className="section-title">{t.appearance ?? 'Appearance'}</h3>
+
+            <p className="section-label">{t.accent_color ?? 'Accent color'}</p>
+            <div className="accent-grid">
+              {ACCENT_PRESETS.map((p) => (
+                <button
+                  key={p.value}
+                  className={`accent-swatch${accentColor === p.value ? ' accent-swatch--active' : ''}`}
+                  style={{ '--sw': p.value }}
+                  title={p.name}
+                  onClick={() => saveAccent(p.value)}
+                  aria-label={p.name}
+                />
+              ))}
+            </div>
+
+            <p className="section-label" style={{ marginTop: '14px' }}>{t.bg_theme ?? 'Background theme'}</p>
+            <div className="theme-row">
+              {BG_THEMES.map((th, idx) => (
+                <button
+                  key={th.name}
+                  className={`theme-btn${bgThemeIdx === idx ? ' theme-btn--active' : ''}`}
+                  style={{ background: th.bg, borderColor: bgThemeIdx === idx ? accentColor : undefined }}
+                  onClick={() => saveBgTheme(idx)}
+                >
+                  <span style={{ background: th.surface, width: 12, height: 12, borderRadius: 3, display: 'block' }} />
+                  <span className="theme-btn__label">{th.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="section">
             <h3 className="section-title">{t.conflicts}</h3>
             {conflictIds.size === 0 ? (
@@ -1279,6 +1438,24 @@ export default function App() {
               {t.logout}
             </button>
           </div>
+
+          {/* PROPOSE SPOT */}
+          {pilotId !== null && (
+            <div className="section">
+              <h3 className="section-title">
+                <MapPin size={15} style={{ display: 'inline', marginRight: 6 }} />
+                {t.propose_spot ?? 'Propose a Spot'}
+              </h3>
+              <p className="section-desc">
+                {lang === 'ru'
+                  ? 'Знаешь хорошее место для полётов? Предложи его — после одобрения оно появится на карте.'
+                  : 'Know a great flying spot? Submit it — after admin review it will appear on the map.'}
+              </p>
+              <button className="btn-secondary" style={{ width: '100%' }} onClick={() => setShowProposeSpot(true)}>
+                <MapPin size={15} /> {t.propose_spot ?? 'Propose a Spot'}
+              </button>
+            </div>
+          )}
 
           {/* ABOUT SECTION */}
           <div className="section about-section">
@@ -1314,55 +1491,49 @@ export default function App() {
             </button>
           </div>
 
-          {/* ADMIN PANEL — только для poluprovodnik (ID 0) */}
-          {isAdmin && (
+          {/* ADMIN PANEL BUTTON — только для admin/super */}
+          {effectiveAdmin && (
             <div className="section admin-section">
               <h3 className="section-title admin-section__title">
                 <ShieldCheck size={16} /> {t.admin_panel}
               </h3>
-
-              {/* Reset all accounts */}
-              <p className="section-desc">{t.reset_accounts_desc}</p>
-              <button
-                className={`btn-danger${resetConfirm ? ' btn-danger--confirm' : ''}`}
-                style={{ marginBottom: '20px' }}
-                onClick={() => {
-                  if (!resetConfirm) {
-                    setResetConfirm(true);
-                    resetConfirmTimerRef.current = setTimeout(() => setResetConfirm(false), 4000);
-                  } else {
-                    clearTimeout(resetConfirmTimerRef.current);
-                    // Keep admin, wipe the rest
-                    lsSetRaw(LS_PILOTS, [ADMIN_PILOT]);
-                    lsSetRaw(LS_DRONES, []);
-                    lsSetRaw(LS_MARKERS, []);
-                    localStorage.removeItem('freqmap_pilot_id');
-                    localStorage.removeItem('freqmap_user');
-                    setPilotId(null);
-                    setUsername('');
-                    setDrones([]);
-                    setMarkers([]);
-                    setSelectedDroneId('');
-                    setDemoMode(false);
-                    setResetConfirm(false);
-                    setActiveTab('map');
-                  }
-                }}
-              >
-                {resetConfirm ? t.reset_accounts_confirm : t.reset_accounts}
+              <p className="section-desc">
+                {serverSuper || isAdmin
+                  ? 'Full access: spots, pilots, admins, stats.'
+                  : 'Manage spots and view statistics.'}
+              </p>
+              <button className="btn-primary" style={{ width: '100%' }} onClick={() => { setShowAdmin(true); setActiveTab('map'); }}>
+                <ShieldCheck size={16} /> {t.admin_panel}
               </button>
 
-              {/* Pilot list */}
-              <p className="section-desc" style={{ fontWeight: 600, color: 'var(--text)' }}>
-                {t.admin_pilots}
-              </p>
-              <AdminPilotList
-                t={t}
-                markers={markers}
-                setMarkers={setMarkers}
-                drones={drones}
-                setDrones={setDrones}
-              />
+              {/* Demo-mode reset (only in localStorage mode) */}
+              {demoMode && (isAdmin || serverSuper) && (
+                <>
+                  <div style={{ height: 12 }} />
+                  <p className="section-desc">{t.reset_accounts_desc}</p>
+                  <button
+                    className={`btn-danger${resetConfirm ? ' btn-danger--confirm' : ''}`}
+                    onClick={() => {
+                      if (!resetConfirm) {
+                        setResetConfirm(true);
+                        resetConfirmTimerRef.current = setTimeout(() => setResetConfirm(false), 4000);
+                      } else {
+                        clearTimeout(resetConfirmTimerRef.current);
+                        lsSetRaw(LS_PILOTS, [ADMIN_PILOT]);
+                        lsSetRaw(LS_DRONES, []);
+                        lsSetRaw(LS_MARKERS, []);
+                        localStorage.removeItem('freqmap_pilot_id');
+                        localStorage.removeItem('freqmap_user');
+                        setPilotId(null); setUsername(''); setDrones([]); setMarkers([]);
+                        setSelectedDroneId(''); setDemoMode(false); setResetConfirm(false);
+                        setActiveTab('map');
+                      }
+                    }}
+                  >
+                    {resetConfirm ? t.reset_accounts_confirm : t.reset_accounts}
+                  </button>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -1443,6 +1614,28 @@ export default function App() {
           onClose={() => setProfileSheet(null)}
           onDeleteDrone={handleSheetDeleteDrone}
           onUpdateDrone={handleSheetUpdateDrone}
+        />
+      )}
+
+      {/* PROPOSE SPOT */}
+      {showProposeSpot && pilotId !== null && (
+        <ProposeSpotSheet
+          pilotId={pilotId}
+          coords={null}
+          onClose={() => setShowProposeSpot(false)}
+          t={t}
+          demoMode={demoMode}
+        />
+      )}
+
+      {/* ADMIN PANEL */}
+      {showAdmin && effectiveAdmin && (
+        <AdminPanel
+          pilotId={pilotId}
+          isSuperAdmin={serverSuper || isAdmin}
+          t={t}
+          demoMode={demoMode}
+          onClose={() => setShowAdmin(false)}
         />
       )}
 

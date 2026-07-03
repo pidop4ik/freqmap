@@ -29,19 +29,47 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # ---------------------------------------------------------------------------
 # Lifespan / DB init
 # ---------------------------------------------------------------------------
+SUPER_ADMIN_USERNAME = "poluprovodnik"
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.mongodb_client = AsyncIOMotorClient(MONGO_URL)
     app.mongodb = app.mongodb_client.fpvmap
-    # TTL-индекс на expire_at для авто-удаления маркеров
     await app.mongodb.markers.create_index("expire_at", expireAfterSeconds=0)
     await app.mongodb.users.create_index("username", unique=True)
     await app.mongodb.messages.create_index([("from_id", 1), ("to_id", 1), ("created_at", 1)])
     await app.mongodb.messages.create_index([("to_id", 1), ("read", 1)])
     await app.mongodb.friends.create_index([("from_id", 1), ("to_id", 1)])
     await app.mongodb.location_chat.create_index([("marker_id", 1), ("created_at", 1)])
+    await app.mongodb.spots.create_index([("status", 1)])
+    await app.mongodb.spots.create_index([("location", "2dsphere")])
+    # Seed super-admin role
+    await app.mongodb.admins.update_one(
+        {"username": SUPER_ADMIN_USERNAME},
+        {"$setOnInsert": {"username": SUPER_ADMIN_USERNAME, "role": "super", "granted_at": datetime.now(timezone.utc)}},
+        upsert=True,
+    )
     yield
     app.mongodb_client.close()
+
+
+# ---------------------------------------------------------------------------
+# Admin helpers
+# ---------------------------------------------------------------------------
+async def is_admin(db, pilot_id: int) -> bool:
+    user = await db.users.find_one({"_id": pilot_id})
+    if not user:
+        return False
+    return await db.admins.find_one({"username": user["username"]}) is not None
+
+
+async def is_super_admin(db, pilot_id: int) -> bool:
+    user = await db.users.find_one({"_id": pilot_id})
+    if not user:
+        return False
+    adm = await db.admins.find_one({"username": user["username"]})
+    return adm is not None and adm.get("role") == "super"
 
 
 app = FastAPI(title="FreqMap Elite API", version="2.0.0", lifespan=lifespan)
@@ -253,8 +281,212 @@ async def delete_marker(marker_id: str, pilot_id: int):
 
 
 # ---------------------------------------------------------------------------
-# Pilots search
+# Admin management (super-admin only)
 # ---------------------------------------------------------------------------
+@app.get("/api/admins")
+async def list_admins(pilot_id: int):
+    if not await is_super_admin(app.mongodb, pilot_id):
+        raise HTTPException(status_code=403, detail="Только super-admin")
+    docs = await app.mongodb.admins.find().to_list(length=200)
+    return [{"username": d["username"], "role": d.get("role", "admin"), "granted_at": d.get("granted_at")} for d in docs]
+
+
+@app.post("/api/admins/grant")
+async def grant_admin(pilot_id: int, target_username: str):
+    if not await is_super_admin(app.mongodb, pilot_id):
+        raise HTTPException(status_code=403, detail="Только super-admin")
+    target = await app.mongodb.users.find_one({"username": target_username})
+    if not target:
+        raise HTTPException(status_code=404, detail="Пилот не найден")
+    await app.mongodb.admins.update_one(
+        {"username": target_username},
+        {"$setOnInsert": {"username": target_username, "role": "admin", "granted_at": datetime.now(timezone.utc)}},
+        upsert=True,
+    )
+    return {"status": "ok"}
+
+
+@app.post("/api/admins/revoke")
+async def revoke_admin(pilot_id: int, target_username: str):
+    if not await is_super_admin(app.mongodb, pilot_id):
+        raise HTTPException(status_code=403, detail="Только super-admin")
+    if target_username == SUPER_ADMIN_USERNAME:
+        raise HTTPException(status_code=403, detail="Нельзя снять super-admin")
+    await app.mongodb.admins.delete_one({"username": target_username})
+    return {"status": "ok"}
+
+
+@app.get("/api/admins/check/{pilot_id}")
+async def check_admin(pilot_id: int):
+    adm = await is_admin(app.mongodb, pilot_id)
+    sup = await is_super_admin(app.mongodb, pilot_id)
+    return {"is_admin": adm, "is_super": sup}
+
+
+# ---------------------------------------------------------------------------
+# Stats endpoint (admin dashboard)
+# ---------------------------------------------------------------------------
+@app.get("/api/stats")
+async def get_stats(pilot_id: int):
+    if not await is_admin(app.mongodb, pilot_id):
+        raise HTTPException(status_code=403, detail="Нет прав")
+    total_pilots = await app.mongodb.users.count_documents({})
+    total_markers = await app.mongodb.markers.count_documents({})
+    active_markers = await app.mongodb.markers.count_documents({"expire_at": {"$gt": datetime.now(timezone.utc)}})
+    total_spots = await app.mongodb.spots.count_documents({})
+    pending_spots = await app.mongodb.spots.count_documents({"status": "pending"})
+    total_messages = await app.mongodb.messages.count_documents({})
+    return {
+        "total_pilots": total_pilots,
+        "total_markers": total_markers,
+        "active_markers": active_markers,
+        "total_spots": total_spots,
+        "pending_spots": pending_spots,
+        "total_messages": total_messages,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Spots (flying locations) — any user can submit, admin must approve
+# ---------------------------------------------------------------------------
+class SpotCreate(BaseModel):
+    pilot_id: int
+    name: str = Field(..., min_length=2, max_length=80)
+    description: str = Field(default="", max_length=500)
+    lat: float
+    lng: float
+    tags: List[str] = []
+
+
+class SpotUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=2, max_length=80)
+    description: Optional[str] = Field(default=None, max_length=500)
+    tags: Optional[List[str]] = None
+
+
+@app.post("/api/spots", status_code=201)
+async def create_spot(spot: SpotCreate):
+    pilot = await app.mongodb.users.find_one({"_id": spot.pilot_id})
+    if not pilot:
+        raise HTTPException(status_code=404, detail="Пилот не найден")
+    doc = {
+        "pilot_id": spot.pilot_id,
+        "pilot_username": pilot["username"],
+        "name": spot.name,
+        "description": spot.description,
+        "lat": spot.lat,
+        "lng": spot.lng,
+        "tags": spot.tags,
+        "status": "pending",   # pending | approved | rejected
+        "created_at": datetime.now(timezone.utc),
+        "reviewed_at": None,
+        "reviewed_by": None,
+    }
+    result = await app.mongodb.spots.insert_one(doc)
+    return {"status": "ok", "spot_id": str(result.inserted_id)}
+
+
+@app.get("/api/spots")
+async def get_spots(status: Optional[str] = "approved"):
+    query = {} if status == "all" else {"status": status}
+    docs = await app.mongodb.spots.find(query).sort("created_at", -1).to_list(length=500)
+    return [{"id": str(d["_id"]), "pilot_id": d["pilot_id"], "pilot_username": d["pilot_username"],
+             "name": d["name"], "description": d.get("description", ""), "lat": d["lat"], "lng": d["lng"],
+             "tags": d.get("tags", []), "status": d["status"],
+             "created_at": d["created_at"].isoformat(),
+             "reviewed_by": d.get("reviewed_by")} for d in docs]
+
+
+@app.post("/api/spots/{spot_id}/approve")
+async def approve_spot(spot_id: str, pilot_id: int):
+    if not await is_admin(app.mongodb, pilot_id):
+        raise HTTPException(status_code=403, detail="Нет прав")
+    user = await app.mongodb.users.find_one({"_id": pilot_id})
+    result = await app.mongodb.spots.find_one_and_update(
+        {"_id": ObjectId(spot_id)},
+        {"$set": {"status": "approved", "reviewed_at": datetime.now(timezone.utc),
+                  "reviewed_by": user["username"] if user else "admin"}},
+    )
+    if not result:
+        raise HTTPException(status_code=404, detail="Спот не найден")
+    return {"status": "ok"}
+
+
+@app.post("/api/spots/{spot_id}/reject")
+async def reject_spot(spot_id: str, pilot_id: int):
+    if not await is_admin(app.mongodb, pilot_id):
+        raise HTTPException(status_code=403, detail="Нет прав")
+    user = await app.mongodb.users.find_one({"_id": pilot_id})
+    result = await app.mongodb.spots.find_one_and_update(
+        {"_id": ObjectId(spot_id)},
+        {"$set": {"status": "rejected", "reviewed_at": datetime.now(timezone.utc),
+                  "reviewed_by": user["username"] if user else "admin"}},
+    )
+    if not result:
+        raise HTTPException(status_code=404, detail="Спот не найден")
+    return {"status": "ok"}
+
+
+@app.patch("/api/spots/{spot_id}")
+async def edit_spot(spot_id: str, update: SpotUpdate, pilot_id: int):
+    if not await is_admin(app.mongodb, pilot_id):
+        raise HTTPException(status_code=403, detail="Нет прав")
+    changes = {k: v for k, v in update.model_dump().items() if v is not None}
+    if not changes:
+        raise HTTPException(status_code=400, detail="Нечего обновлять")
+    await app.mongodb.spots.update_one({"_id": ObjectId(spot_id)}, {"$set": changes})
+    return {"status": "ok"}
+
+
+@app.delete("/api/spots/{spot_id}")
+async def delete_spot(spot_id: str, pilot_id: int):
+    spot = await app.mongodb.spots.find_one({"_id": ObjectId(spot_id)})
+    if not spot:
+        raise HTTPException(status_code=404, detail="Спот не найден")
+    if spot["pilot_id"] != pilot_id and not await is_admin(app.mongodb, pilot_id):
+        raise HTTPException(status_code=403, detail="Нет прав")
+    await app.mongodb.spots.delete_one({"_id": ObjectId(spot_id)})
+    return {"status": "ok"}
+
+
+# ---------------------------------------------------------------------------
+# Pilots list + search
+# ---------------------------------------------------------------------------
+@app.get("/api/pilots/all")
+async def get_all_pilots(pilot_id: int):
+    if not await is_admin(app.mongodb, pilot_id):
+        raise HTTPException(status_code=403, detail="Нет прав")
+    admins_list = await app.mongodb.admins.find().to_list(length=200)
+    admin_usernames = {a["username"] for a in admins_list}
+    docs = await app.mongodb.users.find().sort("_id", 1).to_list(length=2000)
+    result = []
+    for d in docs:
+        m_count = await app.mongodb.markers.count_documents({"pilot_id": d["_id"]})
+        d_count = await app.mongodb.drones.count_documents({"pilot_id": d["_id"]})
+        result.append({
+            "id": d["_id"], "username": d["username"],
+            "is_admin": d["username"] in admin_usernames,
+            "markers": m_count, "drones": d_count,
+            "created_at": d.get("created_at", "").isoformat() if d.get("created_at") else "",
+        })
+    return result
+
+
+@app.delete("/api/pilots/{target_id}")
+async def delete_pilot_admin(target_id: int, pilot_id: int):
+    if not await is_admin(app.mongodb, pilot_id):
+        raise HTTPException(status_code=403, detail="Нет прав")
+    target = await app.mongodb.users.find_one({"_id": target_id})
+    if not target:
+        raise HTTPException(status_code=404, detail="Пилот не найден")
+    if target["username"] == SUPER_ADMIN_USERNAME:
+        raise HTTPException(status_code=403, detail="Нельзя удалить super-admin")
+    await app.mongodb.users.delete_one({"_id": target_id})
+    await app.mongodb.drones.delete_many({"pilot_id": target_id})
+    await app.mongodb.markers.delete_many({"pilot_id": target_id})
+    return {"status": "ok"}
+
+
 @app.get("/api/pilots/search")
 async def search_pilots(q: str):
     import re
