@@ -1514,3 +1514,102 @@ select.field-input {
   from { box-shadow: 0 0 0 0 rgba(255, 92, 92, 0.3); }
   to   { box-shadow: 0 0 0 6px rgba(255, 92, 92, 0); }
 }
+
+/* ==========================================================================
+   Admin badge — shown next to Settings title for poluprovodnik
+   ========================================================================== */
+.admin-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: linear-gradient(135deg, rgba(226, 161, 92, 0.2), rgba(226, 161, 92, 0.08));
+  border: 1px solid rgba(226, 161, 92, 0.5);
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 3px 8px;
+  border-radius: 5px;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+/* ==========================================================================
+   Admin section wrapper
+   ========================================================================== */
+.admin-section {
+  border: 1px solid rgba(226, 161, 92, 0.2);
+  border-radius: var(--radius);
+  background: rgba(226, 161, 92, 0.04);
+}
+
+.admin-section__title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--accent) !important;
+}
+
+/* ==========================================================================
+   Admin pilot list
+   ========================================================================== */
+.admin-pilot-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.admin-pilot-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.admin-pilot-row__info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.admin-pilot-row__id {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  background: var(--accent-dim);
+  border: 1px solid rgba(226, 161, 92, 0.25);
+  padding: 2px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.admin-pilot-row__name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.admin-pilot-row__stats {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.admin-pilot-row__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}

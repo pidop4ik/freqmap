@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Map as MapIcon, User, Settings, Crosshair, Globe, Trash2, Plus, AlertTriangle, Radio, X, ExternalLink, Maximize2, Zap, Weight, Pencil, ChevronDown, ChevronUp, Cpu, Info, Save } from 'lucide-react';
+import { Map as MapIcon, User, Settings, Crosshair, Globe, Trash2, Plus, AlertTriangle, Radio, X, ExternalLink, Maximize2, Zap, Weight, Pencil, ChevronDown, ChevronUp, Cpu, Info, Save, ShieldCheck, UserX } from 'lucide-react';
 
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
@@ -61,6 +61,13 @@ const i18n = {
     reset_accounts_desc: 'Deletes all pilots, drones and markers. Next pilot will get ID #1.',
     reset_accounts_done: 'All data cleared.',
     accounts_section: 'Data management',
+    admin_panel: 'Панель администратора',
+    admin_pilots: 'Все пилоты',
+    admin_delete_pilot: 'Удалить пилота',
+    admin_delete_pilot_confirm: 'Нажми ещё раз',
+    admin_markers: 'меток',
+    admin_drones: 'дронов',
+    admin_badge: 'ADMIN',
   },
   en: {
     search: 'Search location...', map: 'Map', profile: 'Profile',
@@ -88,6 +95,13 @@ const i18n = {
     reset_accounts_desc: 'Deletes all pilots, drones and markers. Next pilot gets ID #1.',
     reset_accounts_done: 'All data cleared.',
     accounts_section: 'Data management',
+    admin_panel: 'Admin Panel',
+    admin_pilots: 'All pilots',
+    admin_delete_pilot: 'Delete pilot',
+    admin_delete_pilot_confirm: 'Click again to confirm',
+    admin_markers: 'markers',
+    admin_drones: 'drones',
+    admin_badge: 'ADMIN',
   },
   pl: {
     search: 'Szukaj lokalizacji...', map: 'Mapa', profile: 'Profil',
@@ -115,25 +129,59 @@ const i18n = {
     reset_accounts_desc: 'Usuwa wszystkich pilotów, drony i znaczniki. Następny pilot dostanie ID #1.',
     reset_accounts_done: 'Dane wyczyszczone.',
     accounts_section: 'Zarządzanie danymi',
+    admin_panel: 'Panel administratora',
+    admin_pilots: 'Wszyscy piloci',
+    admin_delete_pilot: 'Usuń pilota',
+    admin_delete_pilot_confirm: 'Kliknij ponownie',
+    admin_markers: 'znaczników',
+    admin_drones: 'dronów',
+    admin_badge: 'ADMIN',
   },
 };
 
 // ---------------------------------------------------------------------------
 // Local storage helpers (demo mode)
 // ---------------------------------------------------------------------------
-const LS_PILOTS = 'freqmap_pilots';
-const LS_DRONES = 'freqmap_drones';
+const LS_PILOTS  = 'freqmap_pilots';
+const LS_DRONES  = 'freqmap_drones';
 const LS_MARKERS = 'freqmap_markers';
 
-function lsGet(key, fallback) {
+// ---------------------------------------------------------------------------
+// Admin account — always ID 0, seeded on first load, never wiped by Reset
+// ---------------------------------------------------------------------------
+const ADMIN_ID = 0;
+const ADMIN_PILOT = { id: ADMIN_ID, username: 'poluprovodnik', password: 'Pidop 2020', isAdmin: true };
+
+function seedAdminAccount() {
+  const pilots = lsGetRaw(LS_PILOTS, []);
+  if (!pilots.find((p) => p.id === ADMIN_ID)) {
+    lsSetRaw(LS_PILOTS, [ADMIN_PILOT, ...pilots.filter((p) => p.id !== ADMIN_ID)]);
+  }
+}
+
+function lsGetRaw(key, fallback) {
   try { return JSON.parse(localStorage.getItem(key)) ?? fallback; }
   catch { return fallback; }
 }
-function lsSet(key, value) {
+function lsSetRaw(key, value) {
   try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* ignore */ }
 }
+
+function lsGet(key, fallback) { return lsGetRaw(key, fallback); }
+function lsSet(key, value) {
+  // After any write, re-ensure admin account survives
+  lsSetRaw(key, value);
+  if (key === LS_PILOTS) {
+    const pilots = lsGetRaw(LS_PILOTS, []);
+    if (!pilots.find((p) => p.id === ADMIN_ID)) {
+      lsSetRaw(LS_PILOTS, [ADMIN_PILOT, ...pilots]);
+    }
+  }
+}
 function lsNextId(arr) {
-  return arr.length > 0 ? Math.max(...arr.map((x) => x.id)) + 1 : 1;
+  // Regular pilots start from 1, admin occupies 0
+  const ids = arr.map((x) => x.id).filter((id) => id !== ADMIN_ID);
+  return ids.length > 0 ? Math.max(...ids) + 1 : 1;
 }
 
 // ---------------------------------------------------------------------------
@@ -176,6 +224,9 @@ const defaultNewDrone = {
 // App
 // ---------------------------------------------------------------------------
 export default function App() {
+  // Seed admin account before any state reads
+  if (typeof window !== 'undefined') seedAdminAccount();
+
   const storedLang = typeof window !== 'undefined' ? (localStorage.getItem('freq_lang') || 'en') : 'en';
   const [lang, setLang] = useState(storedLang);
   const t = i18n[lang] || i18n.en;
@@ -210,6 +261,9 @@ export default function App() {
   // 1 = basic info, 2 = specs (optional)
   const [addDroneStep, setAddDroneStep] = useState(1);
   const [newDrone, setNewDrone] = useState({ ...defaultNewDrone });
+
+  // Admin flag — derived from pilotId
+  const isAdmin = pilotId === ADMIN_ID;
 
   // Demo mode: бэкенд недоступен
   const [demoMode, setDemoMode] = useState(false);
@@ -1074,17 +1128,20 @@ export default function App() {
       {activeTab === 'settings' && (
         <div className="fullscreen-tab">
           <div className="tab-header">
-            <h2 className="tab-title">
-              {t.settings}
-              {demoMode && <span className="demo-tag">demo</span>}
-            </h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <h2 className="tab-title" style={{ margin: 0 }}>
+                {t.settings}
+                {demoMode && <span className="demo-tag">demo</span>}
+              </h2>
+              {isAdmin && <span className="admin-badge">{t.admin_badge}</span>}
+            </div>
             <button onClick={() => setActiveTab('map')} className="btn-icon" aria-label="Close">
               <X size={20} />
             </button>
           </div>
 
           <div className="section">
-            <h3 className="section-title">Language</h3>
+            <h3 className="section-title">{t.language}</h3>
             <div className="lang-row lang-row--large">
               {['ru', 'en', 'pl'].map((l) => (
                 <button
@@ -1127,37 +1184,57 @@ export default function App() {
             </button>
           </div>
 
-          <div className="section">
-            <h3 className="section-title">{t.accounts_section}</h3>
-            <p className="section-desc">{t.reset_accounts_desc}</p>
-            <button
-              className={`btn-danger${resetConfirm ? ' btn-danger--confirm' : ''}`}
-              onClick={() => {
-                if (!resetConfirm) {
-                  setResetConfirm(true);
-                  resetConfirmTimerRef.current = setTimeout(() => setResetConfirm(false), 4000);
-                } else {
-                  clearTimeout(resetConfirmTimerRef.current);
-                  // Wipe everything
-                  lsSet(LS_PILOTS, []);
-                  lsSet(LS_DRONES, []);
-                  lsSet(LS_MARKERS, []);
-                  localStorage.removeItem('freqmap_pilot_id');
-                  localStorage.removeItem('freqmap_user');
-                  setPilotId(null);
-                  setUsername('');
-                  setDrones([]);
-                  setMarkers([]);
-                  setSelectedDroneId('');
-                  setDemoMode(false);
-                  setResetConfirm(false);
-                  setActiveTab('map');
-                }
-              }}
-            >
-              {resetConfirm ? t.reset_accounts_confirm : t.reset_accounts}
-            </button>
-          </div>
+          {/* ADMIN PANEL — только для poluprovodnik (ID 0) */}
+          {isAdmin && (
+            <div className="section admin-section">
+              <h3 className="section-title admin-section__title">
+                <ShieldCheck size={16} /> {t.admin_panel}
+              </h3>
+
+              {/* Reset all accounts */}
+              <p className="section-desc">{t.reset_accounts_desc}</p>
+              <button
+                className={`btn-danger${resetConfirm ? ' btn-danger--confirm' : ''}`}
+                style={{ marginBottom: '20px' }}
+                onClick={() => {
+                  if (!resetConfirm) {
+                    setResetConfirm(true);
+                    resetConfirmTimerRef.current = setTimeout(() => setResetConfirm(false), 4000);
+                  } else {
+                    clearTimeout(resetConfirmTimerRef.current);
+                    // Keep admin, wipe the rest
+                    lsSetRaw(LS_PILOTS, [ADMIN_PILOT]);
+                    lsSetRaw(LS_DRONES, []);
+                    lsSetRaw(LS_MARKERS, []);
+                    localStorage.removeItem('freqmap_pilot_id');
+                    localStorage.removeItem('freqmap_user');
+                    setPilotId(null);
+                    setUsername('');
+                    setDrones([]);
+                    setMarkers([]);
+                    setSelectedDroneId('');
+                    setDemoMode(false);
+                    setResetConfirm(false);
+                    setActiveTab('map');
+                  }
+                }}
+              >
+                {resetConfirm ? t.reset_accounts_confirm : t.reset_accounts}
+              </button>
+
+              {/* Pilot list */}
+              <p className="section-desc" style={{ fontWeight: 600, color: 'var(--text)' }}>
+                {t.admin_pilots}
+              </p>
+              <AdminPilotList
+                t={t}
+                markers={markers}
+                setMarkers={setMarkers}
+                drones={drones}
+                setDrones={setDrones}
+              />
+            </div>
+          )}
         </div>
       )}
 
@@ -1273,6 +1350,88 @@ export default function App() {
 // ---------------------------------------------------------------------------
 // NavItem
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// AdminPilotList — список всех пилотов для Admin Panel
+// ---------------------------------------------------------------------------
+function AdminPilotList({ t, markers, setMarkers, drones, setDrones }) {
+  const [confirmId, setConfirmId] = React.useState(null);
+  const confirmTimerRef = React.useRef(null);
+
+  const allPilots = lsGet(LS_PILOTS, []).filter((p) => p.id !== ADMIN_ID);
+  const allMarkers = lsGet(LS_MARKERS, []);
+  const allDrones  = lsGet(LS_DRONES, []);
+
+  const deletePilot = (pilotId) => {
+    // Remove pilot
+    const pilots  = lsGet(LS_PILOTS, []).filter((p) => p.id !== pilotId && p.id !== ADMIN_ID);
+    lsSetRaw(LS_PILOTS, [ADMIN_PILOT, ...pilots]);
+    // Remove their markers and drones
+    const newMarkers = allMarkers.filter((m) => m.pilot_id !== pilotId);
+    const newDrones  = allDrones.filter((d) => d.pilot_id !== pilotId);
+    lsSetRaw(LS_MARKERS, newMarkers);
+    lsSetRaw(LS_DRONES,  newDrones);
+    setMarkers(newMarkers);
+    // Update drones state if needed
+    setDrones((prev) => prev.filter((d) => d.pilot_id !== pilotId));
+    setConfirmId(null);
+  };
+
+  if (allPilots.length === 0) {
+    return <p className="empty-text" style={{ fontSize: '12px' }}>No pilots registered yet.</p>;
+  }
+
+  return (
+    <div className="admin-pilot-list">
+      {allPilots.map((pilot) => {
+        const pMarkers = allMarkers.filter((m) => m.pilot_id === pilot.id).length;
+        const pDrones  = allDrones.filter((d) => d.pilot_id === pilot.id).length;
+        const isConfirm = confirmId === pilot.id;
+
+        return (
+          <div key={pilot.id} className="admin-pilot-row">
+            <div className="admin-pilot-row__info">
+              <span className="admin-pilot-row__id">#{pilot.id}</span>
+              <span className="admin-pilot-row__name">{pilot.username}</span>
+              <span className="admin-pilot-row__stats">
+                {pMarkers} {t.admin_markers} · {pDrones} {t.admin_drones}
+              </span>
+            </div>
+            <div className="admin-pilot-row__actions">
+              {isConfirm ? (
+                <>
+                  <button
+                    className="btn-danger btn-danger--sm"
+                    onClick={() => { clearTimeout(confirmTimerRef.current); deletePilot(pilot.id); }}
+                  >
+                    {t.admin_delete_pilot_confirm}
+                  </button>
+                  <button
+                    className="btn-ghost btn-ghost--sm"
+                    onClick={() => { clearTimeout(confirmTimerRef.current); setConfirmId(null); }}
+                  >
+                    {i18n.en.cancel}
+                  </button>
+                </>
+              ) : (
+                <button
+                  className="btn-icon btn-icon--sm btn-icon--danger"
+                  title={t.admin_delete_pilot}
+                  onClick={() => {
+                    setConfirmId(pilot.id);
+                    confirmTimerRef.current = setTimeout(() => setConfirmId(null), 4000);
+                  }}
+                >
+                  <UserX size={15} />
+                </button>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // ProfileDroneList — встроенный список дронов для вкладки Profile
 // Повторяет логику PilotProfileSheet, но без модального overlay
