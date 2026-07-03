@@ -1399,3 +1399,96 @@ select.field-input {
   padding-top: 12px;
   border-top: 1px solid var(--border);
 }
+
+/* ==========================================================================
+   Section header row (title + add button side by side)
+   ========================================================================== */
+.section-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.section-header-row .section-title {
+  margin-bottom: 0;
+}
+
+.btn-secondary--sm {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+.btn-secondary--sm:hover {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+/* ==========================================================================
+   Two-step add drone indicator
+   ========================================================================== */
+.add-drone-steps {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-bottom: 16px;
+}
+
+.add-drone-step {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--surface-3);
+  border: 2px solid var(--border);
+  color: var(--text-muted);
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+  flex-shrink: 0;
+}
+
+.add-drone-step--active {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.add-drone-step--done {
+  background: rgba(74, 222, 128, 0.12);
+  border-color: rgba(74, 222, 128, 0.5);
+  color: #4ade80;
+}
+
+.add-drone-step-line {
+  flex: 1;
+  height: 2px;
+  background: var(--border);
+  margin: 0 6px;
+  max-width: 48px;
+}
+
+/* ==========================================================================
+   Popup: view-only note for own marker
+   ========================================================================== */
+.popup-view-only-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-top: 2px;
+}
