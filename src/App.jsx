@@ -2,16 +2,92 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Map as MapIcon, User, Settings, Crosshair, Globe, Trash2, Plus, AlertTriangle, Radio, X, ExternalLink, Maximize2, Zap, Weight, Pencil, ChevronDown, ChevronUp, Cpu, Info, Save } from 'lucide-react';
+import { Map as MapIcon, User, Settings, Crosshair, Globe, Trash2, Plus, AlertTriangle, Radio, ExternalLink, Maximize2, Zap, Weight, Pencil, ChevronDown, ChevronUp, Cpu, Info, Save, ShieldCheck, UserX, Heart, MessageCircle, MapPin } from 'lucide-react';
 
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 import FrequencySelector from './components/FrequencySelector.jsx';
 import ConflictAlert from './components/ConflictAlert.jsx';
 import PilotProfileSheet from './components/PilotProfileSheet.jsx';
+import DonateSheet from './components/DonateSheet.jsx';
+import ChatSheet from './components/ChatSheet.jsx';
+import AdminPanel from './components/AdminPanel.jsx';
+import ProposeSpotSheet from './components/ProposeSpotSheet.jsx';
 import { findConflictingMarkers } from './data/frequencies.js';
 
-// Fix Leaflet default icon
+// ---------------------------------------------------------------------------
+// Custom SVG marker icons
+// ---------------------------------------------------------------------------
+function makeSvgIcon(svgContent, size = 40, anchor = [20, 40]) {
+  return L.divIcon({
+    html: svgContent,
+    className: '',
+    iconSize: [size, size],
+    iconAnchor: anchor,
+    popupAnchor: [0, -size],
+  });
+}
+
+// Drone flight icon — top-down drone silhouette with glow
+const DroneIcon = makeSvgIcon(`
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 44" width="44" height="44">
+  <defs>
+    <filter id="glow-d" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <g filter="url(#glow-d)" opacity="0.95">
+    <!-- Props blur rings -->
+    <circle cx="10" cy="10" r="7" fill="none" stroke="#e2a15c" stroke-width="1.5" opacity="0.45"/>
+    <circle cx="34" cy="10" r="7" fill="none" stroke="#e2a15c" stroke-width="1.5" opacity="0.45"/>
+    <circle cx="10" cy="34" r="7" fill="none" stroke="#e2a15c" stroke-width="1.5" opacity="0.45"/>
+    <circle cx="34" cy="34" r="7" fill="none" stroke="#e2a15c" stroke-width="1.5" opacity="0.45"/>
+    <!-- Arms -->
+    <line x1="22" y1="18" x2="14" y2="14" stroke="#e2a15c" stroke-width="2.2" stroke-linecap="round"/>
+    <line x1="22" y1="18" x2="30" y2="14" stroke="#e2a15c" stroke-width="2.2" stroke-linecap="round"/>
+    <line x1="22" y1="26" x2="14" y2="30" stroke="#e2a15c" stroke-width="2.2" stroke-linecap="round"/>
+    <line x1="22" y1="26" x2="30" y2="30" stroke="#e2a15c" stroke-width="2.2" stroke-linecap="round"/>
+    <!-- Body -->
+    <rect x="17" y="17" width="10" height="10" rx="3" fill="#e2a15c"/>
+    <!-- Center dot -->
+    <circle cx="22" cy="22" r="2.5" fill="#1d1b20"/>
+    <!-- Motor hubs -->
+    <circle cx="10" cy="10" r="2.8" fill="#e2a15c"/>
+    <circle cx="34" cy="10" r="2.8" fill="#e2a15c"/>
+    <circle cx="10" cy="34" r="2.8" fill="#e2a15c"/>
+    <circle cx="34" cy="34" r="2.8" fill="#e2a15c"/>
+  </g>
+</svg>`, 44, [22, 22]);
+
+// Drone flight icon — conflict (red)
+const DroneConflictIcon = makeSvgIcon(`
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 44" width="44" height="44">
+  <defs>
+    <filter id="glow-c" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <g filter="url(#glow-c)" opacity="0.95">
+    <circle cx="10" cy="10" r="7" fill="none" stroke="#f87171" stroke-width="1.5" opacity="0.45"/>
+    <circle cx="34" cy="10" r="7" fill="none" stroke="#f87171" stroke-width="1.5" opacity="0.45"/>
+    <circle cx="10" cy="34" r="7" fill="none" stroke="#f87171" stroke-width="1.5" opacity="0.45"/>
+    <circle cx="34" cy="34" r="7" fill="none" stroke="#f87171" stroke-width="1.5" opacity="0.45"/>
+    <line x1="22" y1="18" x2="14" y2="14" stroke="#f87171" stroke-width="2.2" stroke-linecap="round"/>
+    <line x1="22" y1="18" x2="30" y2="14" stroke="#f87171" stroke-width="2.2" stroke-linecap="round"/>
+    <line x1="22" y1="26" x2="14" y2="30" stroke="#f87171" stroke-width="2.2" stroke-linecap="round"/>
+    <line x1="22" y1="26" x2="30" y2="30" stroke="#f87171" stroke-width="2.2" stroke-linecap="round"/>
+    <rect x="17" y="17" width="10" height="10" rx="3" fill="#f87171"/>
+    <circle cx="22" cy="22" r="2.5" fill="#1d1b20"/>
+    <circle cx="10" cy="10" r="2.8" fill="#f87171"/>
+    <circle cx="34" cy="10" r="2.8" fill="#f87171"/>
+    <circle cx="10" cy="34" r="2.8" fill="#f87171"/>
+    <circle cx="34" cy="34" r="2.8" fill="#f87171"/>
+  </g>
+</svg>`, 44, [22, 22]);
+
+// Fix Leaflet default icon (fallback)
 const DefaultIcon = L.icon({
   iconUrl: icon,
   shadowUrl: iconShadow,
@@ -56,6 +132,63 @@ const i18n = {
     view_profile: 'Профиль пилота',
     language: 'Язык',
     drone: 'Дрон',
+    reset_accounts: 'Reset all accounts',
+    reset_accounts_confirm: 'Click again to confirm',
+    reset_accounts_desc: 'Deletes all pilots, drones and markers. Next pilot will get ID #1.',
+    reset_accounts_done: 'All data cleared.',
+    accounts_section: 'Data management',
+    admin_panel: 'Панель администратора',
+    admin_pilots: 'Все пилоты',
+    admin_delete_pilot: 'Удалить пилота',
+    admin_delete_pilot_confirm: 'Нажми ещё раз',
+    admin_markers: 'меток',
+    admin_drones: 'дронов',
+    admin_badge: 'ADMIN',
+    chat: 'Чат',
+    friends: 'Друзья',
+    messages: 'Сообщения',
+    location_tab: 'Точки',
+    location_chat: 'Чат точки',
+    search_pilots: 'Поиск по позывному...',
+    find: 'Найти',
+    add_friend: 'Добавить в друзья',
+    already_friends: 'Уже друзья',
+    request_sent: 'Запрос отправлен',
+    pilot_not_found: 'Пилот не найден',
+    incoming_requests: 'Входящие запросы',
+    my_friends: 'Мои друзья',
+    no_friends: 'Друзей нет. Найдите пилота выше.',
+    no_friends_for_dm: 'Сначала добавьте друзей.',
+    no_messages: 'Сообщений нет. Напишите первым!',
+    no_location_msgs: 'Здесь пока нет сообщений.',
+    no_markers_for_chat: 'Нет активных меток. Поставьте метку для чата.',
+    type_message: 'Сообщение...',
+    send_message: 'Написать',
+    accept: 'Принять',
+    reject: 'Отклонить',
+    remove_friend: 'Удалить из друзей',
+    appearance: 'Внешний вид',
+    accent_color: 'Акцентный цвет',
+    bg_theme: 'Тема фона',
+    spot_approval: 'Одобрение споттов',
+    spots_pending: 'Ожидают одобрения',
+    spots_approved: 'Одобрены',
+    spots_all: 'Все споты',
+    approve: 'Одобрить',
+    spot_name: 'Название спота',
+    spot_desc: 'Описание (опционально)',
+    propose_spot: 'Предложить спот',
+    spot_submitted: 'Спот отправлен на проверку!',
+    admin_manage_admins: 'Управление администраторами',
+    admin_grant: 'Назначить',
+    admin_revoke: 'Снять',
+    admin_stats: 'Статистика',
+    donate: 'Донат',
+    about_section: 'О проекте',
+    about_desc: 'FreqMap — инструмент для FPV пилотов. Помогает координировать частоты на полётных точках, чтобы избежать помех.',
+    about_author: 'Автор',
+    about_contact: 'Контакт',
+    about_version: 'Версия',
   },
   en: {
     search: 'Search location...', map: 'Map', profile: 'Profile',
@@ -78,6 +211,63 @@ const i18n = {
     view_profile: 'Pilot Profile',
     language: 'Language',
     drone: 'Drone',
+    reset_accounts: 'Reset all accounts',
+    reset_accounts_confirm: 'Click again to confirm',
+    reset_accounts_desc: 'Deletes all pilots, drones and markers. Next pilot gets ID #1.',
+    reset_accounts_done: 'All data cleared.',
+    accounts_section: 'Data management',
+    admin_panel: 'Admin Panel',
+    admin_pilots: 'All pilots',
+    admin_delete_pilot: 'Delete pilot',
+    admin_delete_pilot_confirm: 'Click again to confirm',
+    admin_markers: 'markers',
+    admin_drones: 'drones',
+    admin_badge: 'ADMIN',
+    chat: 'Chat',
+    friends: 'Friends',
+    messages: 'Messages',
+    location_tab: 'Spots',
+    location_chat: 'Spot chat',
+    search_pilots: 'Search by callsign...',
+    find: 'Find',
+    add_friend: 'Add friend',
+    already_friends: 'Friends',
+    request_sent: 'Sent',
+    pilot_not_found: 'Pilot not found',
+    incoming_requests: 'Incoming requests',
+    my_friends: 'My friends',
+    no_friends: 'No friends yet. Search above.',
+    no_friends_for_dm: 'Add friends first.',
+    no_messages: 'No messages yet. Say hi!',
+    no_location_msgs: 'No messages at this spot yet.',
+    no_markers_for_chat: 'No active markers. Place one to chat.',
+    type_message: 'Message...',
+    send_message: 'Message',
+    accept: 'Accept',
+    reject: 'Reject',
+    remove_friend: 'Remove friend',
+    appearance: 'Appearance',
+    accent_color: 'Accent color',
+    bg_theme: 'Background theme',
+    spot_approval: 'Spot approval',
+    spots_pending: 'Pending',
+    spots_approved: 'Approved',
+    spots_all: 'All spots',
+    approve: 'Approve',
+    spot_name: 'Spot name',
+    spot_desc: 'Description (optional)',
+    propose_spot: 'Propose a spot',
+    spot_submitted: 'Spot submitted for review!',
+    admin_manage_admins: 'Manage admins',
+    admin_grant: 'Grant',
+    admin_revoke: 'Revoke',
+    admin_stats: 'Statistics',
+    donate: 'Donate',
+    about_section: 'About',
+    about_desc: 'FreqMap is a tool for FPV pilots. It helps coordinate video frequencies at flying spots to avoid interference.',
+    about_author: 'Author',
+    about_contact: 'Contact',
+    about_version: 'Version',
   },
   pl: {
     search: 'Szukaj lokalizacji...', map: 'Mapa', profile: 'Profil',
@@ -100,25 +290,109 @@ const i18n = {
     view_profile: 'Profil pilota',
     language: 'Język',
     drone: 'Dron',
+    reset_accounts: 'Resetuj wszystkie konta',
+    reset_accounts_confirm: 'Kliknij ponownie aby potwierdzić',
+    reset_accounts_desc: 'Usuwa wszystkich pilotów, drony i znaczniki. Następny pilot dostanie ID #1.',
+    reset_accounts_done: 'Dane wyczyszczone.',
+    accounts_section: 'Zarządzanie danymi',
+    admin_panel: 'Panel administratora',
+    admin_pilots: 'Wszyscy piloci',
+    admin_delete_pilot: 'Usuń pilota',
+    admin_delete_pilot_confirm: 'Kliknij ponownie',
+    admin_markers: 'znaczników',
+    admin_drones: 'dronów',
+    admin_badge: 'ADMIN',
+    chat: 'Czat',
+    friends: 'Znajomi',
+    messages: 'Wiadomości',
+    location_tab: 'Punkty',
+    location_chat: 'Czat punktu',
+    search_pilots: 'Szukaj po znaku...',
+    find: 'Szukaj',
+    add_friend: 'Dodaj znajomego',
+    already_friends: 'Znajomi',
+    request_sent: 'Wysłano',
+    pilot_not_found: 'Nie znaleziono pilota',
+    incoming_requests: 'Zaproszenia',
+    my_friends: 'Moi znajomi',
+    no_friends: 'Brak znajomych. Wyszukaj pilota powyżej.',
+    no_friends_for_dm: 'Najpierw dodaj znajomych.',
+    no_messages: 'Brak wiadomości. Napisz coś!',
+    no_location_msgs: 'Brak wiadomości w tym miejscu.',
+    no_markers_for_chat: 'Brak aktywnych znaczników. Dodaj jeden.',
+    type_message: 'Wiadomość...',
+    send_message: 'Napisz',
+    accept: 'Akceptuj',
+    reject: 'Odrzuć',
+    remove_friend: 'Usuń znajomego',
+    appearance: 'Wygląd',
+    accent_color: 'Kolor akcentu',
+    bg_theme: 'Motyw tła',
+    spot_approval: 'Zatwierdzanie spotów',
+    spots_pending: 'Oczekujące',
+    spots_approved: 'Zatwierdzone',
+    spots_all: 'Wszystkie spoty',
+    approve: 'Zatwierdź',
+    spot_name: 'Nazwa spotu',
+    spot_desc: 'Opis (opcjonalnie)',
+    propose_spot: 'Zaproponuj spot',
+    spot_submitted: 'Spot wysłany do weryfikacji!',
+    admin_manage_admins: 'Zarządzaj administratorami',
+    admin_grant: 'Nadaj',
+    admin_revoke: 'Odbierz',
+    admin_stats: 'Statystyki',
+    donate: 'Wsparcie',
+    about_section: 'O projekcie',
+    about_desc: 'FreqMap to narzędzie dla pilotów FPV. Pomaga koordynować częstotliwości wideo na polach lotów, aby uniknąć zakłóceń.',
+    about_author: 'Autor',
+    about_contact: 'Kontakt',
+    about_version: 'Wersja',
   },
 };
 
 // ---------------------------------------------------------------------------
 // Local storage helpers (demo mode)
 // ---------------------------------------------------------------------------
-const LS_PILOTS = 'freqmap_pilots';
-const LS_DRONES = 'freqmap_drones';
+const LS_PILOTS  = 'freqmap_pilots';
+const LS_DRONES  = 'freqmap_drones';
 const LS_MARKERS = 'freqmap_markers';
 
-function lsGet(key, fallback) {
+// ---------------------------------------------------------------------------
+// Admin account — always ID 0, seeded on first load, never wiped by Reset
+// ---------------------------------------------------------------------------
+const ADMIN_ID = 0;
+const ADMIN_PILOT = { id: ADMIN_ID, username: 'poluprovodnik', password: 'Pidop 2020', isAdmin: true };
+
+function seedAdminAccount() {
+  const pilots = lsGetRaw(LS_PILOTS, []);
+  if (!pilots.find((p) => p.id === ADMIN_ID)) {
+    lsSetRaw(LS_PILOTS, [ADMIN_PILOT, ...pilots.filter((p) => p.id !== ADMIN_ID)]);
+  }
+}
+
+function lsGetRaw(key, fallback) {
   try { return JSON.parse(localStorage.getItem(key)) ?? fallback; }
   catch { return fallback; }
 }
-function lsSet(key, value) {
+function lsSetRaw(key, value) {
   try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* ignore */ }
 }
+
+function lsGet(key, fallback) { return lsGetRaw(key, fallback); }
+function lsSet(key, value) {
+  // After any write, re-ensure admin account survives
+  lsSetRaw(key, value);
+  if (key === LS_PILOTS) {
+    const pilots = lsGetRaw(LS_PILOTS, []);
+    if (!pilots.find((p) => p.id === ADMIN_ID)) {
+      lsSetRaw(LS_PILOTS, [ADMIN_PILOT, ...pilots]);
+    }
+  }
+}
 function lsNextId(arr) {
-  return arr.length > 0 ? Math.max(...arr.map((x) => x.id)) + 1 : 1;
+  // Regular pilots start from 1, admin occupies 0
+  const ids = arr.map((x) => x.id).filter((id) => id !== ADMIN_ID);
+  return ids.length > 0 ? Math.max(...ids) + 1 : 1;
 }
 
 // ---------------------------------------------------------------------------
@@ -158,9 +432,55 @@ const defaultNewDrone = {
 };
 
 // ---------------------------------------------------------------------------
+// Theme system
+// ---------------------------------------------------------------------------
+const ACCENT_PRESETS = [
+  { name: 'Amber',   value: '#e2a15c' }, // default
+  { name: 'Blue',    value: '#60a5fa' },
+  { name: 'Green',   value: '#4ade80' },
+  { name: 'Red',     value: '#f87171' },
+  { name: 'Purple',  value: '#c084fc' },
+  { name: 'Cyan',    value: '#22d3ee' },
+  { name: 'Pink',    value: '#f472b6' },
+  { name: 'White',   value: '#e6e1e5' },
+];
+
+const BG_THEMES = [
+  { name: 'Dark',    bg: '#141218', surface: '#1e1c22', surface2: '#2a2830', surface3: '#332f3a', border: '#3a3740' },
+  { name: 'Darker',  bg: '#0a0a0f', surface: '#111118', surface2: '#1a1a24', surface3: '#222230', border: '#2a2a38' },
+  { name: 'Warm',    bg: '#1a1510', surface: '#231e17', surface2: '#2e261c', surface3: '#3a3022', border: '#443828' },
+  { name: 'Slate',   bg: '#0f1117', surface: '#191c24', surface2: '#22262f', surface3: '#2c303a', border: '#363a45' },
+];
+
+function applyTheme(accent, bgTheme) {
+  const r = document.documentElement;
+  r.style.setProperty('--accent', accent);
+  // Compute dim: accent at 15% opacity
+  const hex = accent.replace('#', '');
+  const ri = parseInt(hex.slice(0,2),16), gi = parseInt(hex.slice(2,4),16), bi = parseInt(hex.slice(4,6),16);
+  r.style.setProperty('--accent-dim', `rgba(${ri},${gi},${bi},0.15)`);
+  if (bgTheme) {
+    r.style.setProperty('--bg',       bgTheme.bg);
+    r.style.setProperty('--surface',  bgTheme.surface);
+    r.style.setProperty('--surface-2', bgTheme.surface2);
+    r.style.setProperty('--surface-3', bgTheme.surface3);
+    r.style.setProperty('--border',   bgTheme.border);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // App
 // ---------------------------------------------------------------------------
 export default function App() {
+  // Seed admin account before any state reads
+  if (typeof window !== 'undefined') {
+    seedAdminAccount();
+    // Apply saved theme immediately (before first paint)
+    const savedAccent = localStorage.getItem('freq_accent') || '#e2a15c';
+    const savedThemeIdx = Number(localStorage.getItem('freq_theme') || 0);
+    applyTheme(savedAccent, BG_THEMES[savedThemeIdx] ?? BG_THEMES[0]);
+  }
+
   const storedLang = typeof window !== 'undefined' ? (localStorage.getItem('freq_lang') || 'en') : 'en';
   const [lang, setLang] = useState(storedLang);
   const t = i18n[lang] || i18n.en;
@@ -189,15 +509,51 @@ export default function App() {
   const [searchResults, setSearchResults] = useState([]);
   const searchTimeoutRef = useRef(null);
 
-  const [activeTab, setActiveTab] = useState('map');
+  // Single source of truth for navigation — no more per-sheet booleans
+  const [activeView, setActiveView] = useState('map');
+  // Previous view to restore after map-click menu
+  const prevViewRef = useRef('map');
   const [modalCoords, setModalCoords] = useState(null);
+  // 'drone' | 'spot' | null — map click action picker
+  const [mapClickMenu, setMapClickMenu] = useState(null);
   const [showNewDroneForm, setShowNewDroneForm] = useState(false);
   // 1 = basic info, 2 = specs (optional)
   const [addDroneStep, setAddDroneStep] = useState(1);
   const [newDrone, setNewDrone] = useState({ ...defaultNewDrone });
 
+  // Admin flag — derived from pilotId (demo) + server check
+  const isAdmin = pilotId === ADMIN_ID;
+  const [serverAdmin, setServerAdmin] = useState(false);
+  const [serverSuper, setServerSuper]  = useState(false);
+  const effectiveAdmin = isAdmin || serverAdmin;
+
+  // Theme
+  const [accentColor, setAccentColor] = useState(() => localStorage.getItem('freq_accent') || '#e2a15c');
+  const [bgThemeIdx, setBgThemeIdx]   = useState(() => Number(localStorage.getItem('freq_theme') || 0));
+
+  // Apply theme on mount and changes
+  useEffect(() => {
+    applyTheme(accentColor, BG_THEMES[bgThemeIdx]);
+  }, [accentColor, bgThemeIdx]);
+
+  const saveAccent = (color) => {
+    setAccentColor(color);
+    localStorage.setItem('freq_accent', color);
+  };
+  const saveBgTheme = (idx) => {
+    setBgThemeIdx(idx);
+    localStorage.setItem('freq_theme', String(idx));
+  };
+
+  // Unread chat badge
+  const [unreadCount, setUnreadCount] = useState(0);
+
   // Demo mode: бэкенд недоступен
   const [demoMode, setDemoMode] = useState(false);
+
+  // Reset all accounts: double-confirm
+  const [resetConfirm, setResetConfirm] = useState(false);
+  const resetConfirmTimerRef = useRef(null);
 
   // Profile sheet — открывается из попапа метки
   // { pilot: {id, username}, drones: DroneProfile[] } | null
@@ -278,10 +634,15 @@ export default function App() {
   useEffect(() => {
     if (pilotId != null) {
       loadData(pilotId);
+      // Check server-side admin status
+      fetch(`${API_BASE}/admins/check/${pilotId}`)
+        .then((r) => r.ok ? r.json() : null)
+        .then((d) => { if (d) { setServerAdmin(d.is_admin); setServerSuper(d.is_super); } })
+        .catch(() => {});
     }
     const interval = setInterval(() => loadData(pilotId), 15000);
     return () => clearInterval(interval);
-  }, [pilotId]); // FIX: не тянем loadData в deps чтобы не ловить бесконечный цикл
+  }, [pilotId]);
 
   // ---------------------------------------------------------------------------
   // Auth
@@ -502,7 +863,7 @@ export default function App() {
       lsSet(LS_MARKERS, updated);
       setMarkers(updated);
       setModalCoords(null);
-      setActiveTab('map');
+      setActiveView('map');
       return;
     }
 
@@ -519,7 +880,7 @@ export default function App() {
       });
       if (res.ok) {
         setModalCoords(null);
-        setActiveTab('map');
+        setActiveView('map');
         loadData(pilotId);
       }
     } catch (err) {
@@ -728,7 +1089,7 @@ export default function App() {
       )}
 
       {/* MAP VIEW — always mounted to keep map state */}
-      <div className={`map-wrapper ${activeTab !== 'map' ? 'map-wrapper--hidden' : ''}`}>
+      <div className={`map-wrapper ${activeView !== 'map' ? 'map-wrapper--hidden' : ''}`}>
 
         {/* Search bar */}
         <div className="search-container">
@@ -789,8 +1150,9 @@ export default function App() {
           <MapController center={mapCenter} zoom={mapZoom} />
           <MapEvents
             onMapClick={(latlng) => {
+              if (!pilotId) return;
               setModalCoords(latlng);
-              setActiveTab('add_marker');
+              setMapClickMenu({ lat: latlng.lat, lng: latlng.lng });
             }}
           />
 
@@ -800,7 +1162,7 @@ export default function App() {
               <Marker
                 key={m.id}
                 position={[m.coordinates.lat, m.coordinates.lng]}
-                icon={isConflict ? ConflictIcon : DefaultIcon}
+                icon={isConflict ? DroneConflictIcon : DroneIcon}
               >
                 <Popup>
                   <div className="popup-content">
@@ -861,16 +1223,13 @@ export default function App() {
       </div>
 
       {/* PROFILE TAB */}
-      {activeTab === 'profile' && (
+      {activeView === 'profile' && (
         <div className="fullscreen-tab">
           <div className="tab-header">
             <div>
               <h2 className="tab-title">{username}</h2>
               <p className="tab-subtitle">Pilot #{pilotId}</p>
             </div>
-            <button onClick={() => setActiveTab('map')} className="btn-icon" aria-label="Close">
-              <X size={20} />
-            </button>
           </div>
 
           {/* Inline add-drone form */}
@@ -1052,20 +1411,20 @@ export default function App() {
       )}
 
       {/* SETTINGS TAB */}
-      {activeTab === 'settings' && (
+      {activeView === 'settings' && (
         <div className="fullscreen-tab">
           <div className="tab-header">
-            <h2 className="tab-title">
-              {t.settings}
-              {demoMode && <span className="demo-tag">demo</span>}
-            </h2>
-            <button onClick={() => setActiveTab('map')} className="btn-icon" aria-label="Close">
-              <X size={20} />
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <h2 className="tab-title" style={{ margin: 0 }}>
+                {t.settings}
+                {demoMode && <span className="demo-tag">demo</span>}
+              </h2>
+              {(isAdmin || serverAdmin) && <span className="admin-badge">{t.admin_badge}</span>}
+            </div>
           </div>
 
           <div className="section">
-            <h3 className="section-title">Language</h3>
+            <h3 className="section-title">{t.language}</h3>
             <div className="lang-row lang-row--large">
               {['ru', 'en', 'pl'].map((l) => (
                 <button
@@ -1074,6 +1433,40 @@ export default function App() {
                   className={`lang-btn lang-btn--large ${lang === l ? 'active' : ''}`}
                 >
                   {l.toUpperCase()}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* APPEARANCE */}
+          <div className="section">
+            <h3 className="section-title">{t.appearance ?? 'Appearance'}</h3>
+
+            <p className="section-label">{t.accent_color ?? 'Accent color'}</p>
+            <div className="accent-grid">
+              {ACCENT_PRESETS.map((p) => (
+                <button
+                  key={p.value}
+                  className={`accent-swatch${accentColor === p.value ? ' accent-swatch--active' : ''}`}
+                  style={{ '--sw': p.value }}
+                  title={p.name}
+                  onClick={() => saveAccent(p.value)}
+                  aria-label={p.name}
+                />
+              ))}
+            </div>
+
+            <p className="section-label" style={{ marginTop: '14px' }}>{t.bg_theme ?? 'Background theme'}</p>
+            <div className="theme-row">
+              {BG_THEMES.map((th, idx) => (
+                <button
+                  key={th.name}
+                  className={`theme-btn${bgThemeIdx === idx ? ' theme-btn--active' : ''}`}
+                  style={{ background: th.bg, borderColor: bgThemeIdx === idx ? accentColor : undefined }}
+                  onClick={() => saveBgTheme(idx)}
+                >
+                  <span style={{ background: th.surface, width: 12, height: 12, borderRadius: 3, display: 'block' }} />
+                  <span className="theme-btn__label">{th.name}</span>
                 </button>
               ))}
             </div>
@@ -1100,18 +1493,166 @@ export default function App() {
                 setDrones([]);
                 setMarkers([]);
                 setSelectedDroneId('');
-                setActiveTab('map');
+                setActiveView('map');
               }}
               className="btn-danger"
             >
               {t.logout}
             </button>
           </div>
+
+          {/* ABOUT SECTION */}
+          <div className="section about-section">
+            <h3 className="section-title">{t.about_section}</h3>
+            <p className="section-desc">{t.about_desc}</p>
+            <div className="about-rows">
+              <div className="about-row">
+                <span className="about-row__label">{t.about_author}</span>
+                <span className="about-row__value">poluprovodnik</span>
+              </div>
+              <div className="about-row">
+                <span className="about-row__label">{t.about_contact}</span>
+                <a
+                  href="https://t.me/arduinomini"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="about-row__link"
+                >
+                  @arduinomini
+                </a>
+              </div>
+              <div className="about-row">
+                <span className="about-row__label">{t.about_version}</span>
+                <span className="about-row__value">1.0.0</span>
+              </div>
+            </div>
+            <button
+              className="donate-tg-btn donate-tg-btn--muted"
+              onClick={() => setActiveView('donate')}
+            >
+              <Heart size={15} />
+              {t.donate}
+            </button>
+          </div>
+
+          {/* ADMIN PANEL BUTTON — только для admin/super */}
+          {effectiveAdmin && (
+            <div className="section admin-section">
+              <h3 className="section-title admin-section__title">
+                <ShieldCheck size={16} /> {t.admin_panel}
+              </h3>
+              <p className="section-desc">
+                {serverSuper || isAdmin
+                  ? 'Full access: spots, pilots, admins, stats.'
+                  : 'Manage spots and view statistics.'}
+              </p>
+              <button className="btn-primary" style={{ width: '100%' }} onClick={() => setActiveView('admin')}>
+                <ShieldCheck size={16} /> {t.admin_panel}
+              </button>
+
+              {/* Demo-mode reset (only in localStorage mode) */}
+              {demoMode && (isAdmin || serverSuper) && (
+                <>
+                  <div style={{ height: 12 }} />
+                  <p className="section-desc">{t.reset_accounts_desc}</p>
+                  <button
+                    className={`btn-danger${resetConfirm ? ' btn-danger--confirm' : ''}`}
+                    onClick={() => {
+                      if (!resetConfirm) {
+                        setResetConfirm(true);
+                        resetConfirmTimerRef.current = setTimeout(() => setResetConfirm(false), 4000);
+                      } else {
+                        clearTimeout(resetConfirmTimerRef.current);
+                        lsSetRaw(LS_PILOTS, [ADMIN_PILOT]);
+                        lsSetRaw(LS_DRONES, []);
+                        lsSetRaw(LS_MARKERS, []);
+                        localStorage.removeItem('freqmap_pilot_id');
+                        localStorage.removeItem('freqmap_user');
+                        setPilotId(null); setUsername(''); setDrones([]); setMarkers([]);
+                        setSelectedDroneId(''); setDemoMode(false); setResetConfirm(false);
+                        setActiveView('map');
+                      }
+                    }}
+                  >
+                    {resetConfirm ? t.reset_accounts_confirm : t.reset_accounts}
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* MAP CLICK MENU — выбор типа действия */}
+      {mapClickMenu && (
+        <div className="modal-overlay" role="dialog" aria-modal="true" onClick={() => setMapClickMenu(null)}>
+          <div className="map-action-card" onClick={(e) => e.stopPropagation()}>
+            <p className="modal-coords" style={{ marginBottom: 16 }}>
+              {mapClickMenu.lat.toFixed(5)}, {mapClickMenu.lng.toFixed(5)}
+            </p>
+            <div className="map-action-choices">
+              <button
+                className="map-action-btn"
+                onClick={() => {
+                  setMapClickMenu(null);
+                  setActiveView('add_marker');
+                }}
+              >
+                <span className="map-action-icon">
+                  <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" width="32" height="32">
+                    {/* Drone top-down: body + 4 arms + propellers */}
+                    <circle cx="16" cy="16" r="4" fill="currentColor" opacity="0.9"/>
+                    {/* Arms */}
+                    <line x1="16" y1="12" x2="11" y2="7" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    <line x1="16" y1="12" x2="21" y2="7" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    <line x1="16" y1="20" x2="11" y2="25" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    <line x1="16" y1="20" x2="21" y2="25" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    {/* Prop circles */}
+                    <circle cx="11" cy="7" r="3.5" stroke="currentColor" strokeWidth="1.5" fill="none" opacity="0.7"/>
+                    <circle cx="21" cy="7" r="3.5" stroke="currentColor" strokeWidth="1.5" fill="none" opacity="0.7"/>
+                    <circle cx="11" cy="25" r="3.5" stroke="currentColor" strokeWidth="1.5" fill="none" opacity="0.7"/>
+                    <circle cx="21" cy="25" r="3.5" stroke="currentColor" strokeWidth="1.5" fill="none" opacity="0.7"/>
+                  </svg>
+                </span>
+                <span className="map-action-label">
+                  {lang === 'ru' ? 'Полёт дрона' : lang === 'pl' ? 'Lot drona' : 'Drone flight'}
+                </span>
+                <span className="map-action-desc">
+                  {lang === 'ru' ? 'Отметить зону полёта' : 'Mark flying zone'}
+                </span>
+              </button>
+
+              <button
+                className="map-action-btn"
+                onClick={() => {
+                  setMapClickMenu(null);
+                  setActiveView('propose_spot');
+                }}
+              >
+                <span className="map-action-icon">
+                  <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" width="32" height="32">
+                    <path d="M16 3C11.582 3 8 6.582 8 11c0 6.627 8 18 8 18s8-11.373 8-18c0-4.418-3.582-8-8-8z" fill="currentColor" opacity="0.15" stroke="currentColor" strokeWidth="1.8"/>
+                    <circle cx="16" cy="11" r="3.5" fill="currentColor"/>
+                    <path d="M13 27h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" opacity="0.5"/>
+                  </svg>
+                </span>
+                <span className="map-action-label">
+                  {lang === 'ru' ? 'Предложить спот' : lang === 'pl' ? 'Zaproponuj spot' : 'Propose spot'}
+                </span>
+                <span className="map-action-desc">
+                  {lang === 'ru' ? 'Добавить место для полётов' : 'Add a flying location'}
+                </span>
+              </button>
+            </div>
+            <button className="btn-ghost" style={{ width: '100%', marginTop: 8 }} onClick={() => setMapClickMenu(null)}>
+              {t.cancel}
+            </button>
+          </div>
         </div>
       )}
 
       {/* ADD MARKER MODAL */}
-      {activeTab === 'add_marker' && (
+      {activeView === 'add_marker' && (
         <div className="modal-overlay" role="dialog" aria-modal="true">
           <div className="modal-card">
             <h3 className="modal-title">{t.put_marker}</h3>
@@ -1157,7 +1698,7 @@ export default function App() {
 
             <div className="form-actions">
               <button
-                onClick={() => { setModalCoords(null); setActiveTab('map'); }}
+                onClick={() => { setModalCoords(null); setActiveView('map'); }}
                 className="btn-secondary"
               >
                 {t.cancel}
@@ -1188,11 +1729,59 @@ export default function App() {
         />
       )}
 
+      {/* PROPOSE SPOT SHEET */}
+      {activeView === 'propose_spot' && pilotId !== null && (
+        <ProposeSpotSheet
+          pilotId={pilotId}
+          coords={modalCoords}
+          onClose={() => setActiveView('map')}
+          t={t}
+          demoMode={demoMode}
+        />
+      )}
+
+      {/* ADMIN PANEL */}
+      {activeView === 'admin' && effectiveAdmin && (
+        <AdminPanel
+          pilotId={pilotId}
+          isSuperAdmin={serverSuper || isAdmin}
+          t={t}
+          demoMode={demoMode}
+          onClose={() => setActiveView('settings')}
+        />
+      )}
+
+      {/* DONATE SHEET */}
+      {activeView === 'donate' && (
+        <DonateSheet lang={lang} onClose={() => setActiveView('settings')} />
+      )}
+
+      {/* CHAT SHEET */}
+      {activeView === 'chat' && pilotId !== null && (
+        <ChatSheet
+          pilotId={pilotId}
+          username={username}
+          lang={lang}
+          t={t}
+          markers={markers}
+          onClose={() => { setActiveView('map'); setUnreadCount(0); }}
+          onUnreadChange={(count) => {
+            if (typeof count === 'number') setUnreadCount(count);
+            else {
+              fetch(`http://localhost:8000/api/messages/${pilotId}/unread/count`)
+                .then((r) => r.ok ? r.json() : { count: 0 })
+                .then(({ count: c }) => setUnreadCount(c))
+                .catch(() => {});
+            }
+          }}
+        />
+      )}
+
       {/* BOTTOM NAV */}
       <nav className="bottom-nav" aria-label="Main navigation">
         <div className="bottom-nav__inner">
-          <NavItem icon={MapIcon} label={t.map} active={activeTab === 'map'} onClick={() => setActiveTab('map')} />
-          <NavItem icon={User} label={t.profile} active={activeTab === 'profile'} onClick={() => setActiveTab('profile')} />
+          <NavItem icon={MapIcon} label={t.map} active={activeView === 'map'} onClick={() => setActiveView('map')} />
+          <NavItem icon={User} label={t.profile} active={activeView === 'profile'} onClick={() => setActiveView('profile')} />
 
           <div className="fab-wrapper">
             <button onClick={locateMe} className="fab-btn" aria-label="My location">
@@ -1201,17 +1790,18 @@ export default function App() {
           </div>
 
           <NavItem
-            icon={Settings}
-            label={t.settings}
-            active={activeTab === 'settings'}
-            onClick={() => setActiveTab('settings')}
-            badge={conflictIds.size > 0 ? conflictIds.size : null}
+            icon={MessageCircle}
+            label={t.chat ?? 'Chat'}
+            active={activeView === 'chat'}
+            onClick={() => { if (pilotId !== null) setActiveView('chat'); }}
+            badge={unreadCount > 0 ? unreadCount : null}
           />
           <NavItem
-            icon={Globe}
-            label={lang.toUpperCase()}
-            active={false}
-            onClick={() => switchLang(lang === 'ru' ? 'en' : lang === 'en' ? 'pl' : 'ru')}
+            icon={Settings}
+            label={t.settings}
+            active={activeView === 'settings'}
+            onClick={() => setActiveView('settings')}
+            badge={conflictIds.size > 0 ? conflictIds.size : null}
           />
         </div>
       </nav>
@@ -1222,6 +1812,88 @@ export default function App() {
 // ---------------------------------------------------------------------------
 // NavItem
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// AdminPilotList — список всех пилотов для Admin Panel
+// ---------------------------------------------------------------------------
+function AdminPilotList({ t, markers, setMarkers, drones, setDrones }) {
+  const [confirmId, setConfirmId] = React.useState(null);
+  const confirmTimerRef = React.useRef(null);
+
+  const allPilots = lsGet(LS_PILOTS, []).filter((p) => p.id !== ADMIN_ID);
+  const allMarkers = lsGet(LS_MARKERS, []);
+  const allDrones  = lsGet(LS_DRONES, []);
+
+  const deletePilot = (pilotId) => {
+    // Remove pilot
+    const pilots  = lsGet(LS_PILOTS, []).filter((p) => p.id !== pilotId && p.id !== ADMIN_ID);
+    lsSetRaw(LS_PILOTS, [ADMIN_PILOT, ...pilots]);
+    // Remove their markers and drones
+    const newMarkers = allMarkers.filter((m) => m.pilot_id !== pilotId);
+    const newDrones  = allDrones.filter((d) => d.pilot_id !== pilotId);
+    lsSetRaw(LS_MARKERS, newMarkers);
+    lsSetRaw(LS_DRONES,  newDrones);
+    setMarkers(newMarkers);
+    // Update drones state if needed
+    setDrones((prev) => prev.filter((d) => d.pilot_id !== pilotId));
+    setConfirmId(null);
+  };
+
+  if (allPilots.length === 0) {
+    return <p className="empty-text" style={{ fontSize: '12px' }}>No pilots registered yet.</p>;
+  }
+
+  return (
+    <div className="admin-pilot-list">
+      {allPilots.map((pilot) => {
+        const pMarkers = allMarkers.filter((m) => m.pilot_id === pilot.id).length;
+        const pDrones  = allDrones.filter((d) => d.pilot_id === pilot.id).length;
+        const isConfirm = confirmId === pilot.id;
+
+        return (
+          <div key={pilot.id} className="admin-pilot-row">
+            <div className="admin-pilot-row__info">
+              <span className="admin-pilot-row__id">#{pilot.id}</span>
+              <span className="admin-pilot-row__name">{pilot.username}</span>
+              <span className="admin-pilot-row__stats">
+                {pMarkers} {t.admin_markers} · {pDrones} {t.admin_drones}
+              </span>
+            </div>
+            <div className="admin-pilot-row__actions">
+              {isConfirm ? (
+                <>
+                  <button
+                    className="btn-danger btn-danger--sm"
+                    onClick={() => { clearTimeout(confirmTimerRef.current); deletePilot(pilot.id); }}
+                  >
+                    {t.admin_delete_pilot_confirm}
+                  </button>
+                  <button
+                    className="btn-ghost btn-ghost--sm"
+                    onClick={() => { clearTimeout(confirmTimerRef.current); setConfirmId(null); }}
+                  >
+                    {i18n.en.cancel}
+                  </button>
+                </>
+              ) : (
+                <button
+                  className="btn-icon btn-icon--sm btn-icon--danger"
+                  title={t.admin_delete_pilot}
+                  onClick={() => {
+                    setConfirmId(pilot.id);
+                    confirmTimerRef.current = setTimeout(() => setConfirmId(null), 4000);
+                  }}
+                >
+                  <UserX size={15} />
+                </button>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // ProfileDroneList — встроенный список дронов для вкладки Profile
 // Повторяет логику PilotProfileSheet, но без модального overlay
