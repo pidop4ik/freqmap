@@ -56,6 +56,11 @@ const i18n = {
     view_profile: 'Профиль пилота',
     language: 'Язык',
     drone: 'Дрон',
+    reset_accounts: 'Reset all accounts',
+    reset_accounts_confirm: 'Click again to confirm',
+    reset_accounts_desc: 'Deletes all pilots, drones and markers. Next pilot will get ID #1.',
+    reset_accounts_done: 'All data cleared.',
+    accounts_section: 'Data management',
   },
   en: {
     search: 'Search location...', map: 'Map', profile: 'Profile',
@@ -78,6 +83,11 @@ const i18n = {
     view_profile: 'Pilot Profile',
     language: 'Language',
     drone: 'Drone',
+    reset_accounts: 'Reset all accounts',
+    reset_accounts_confirm: 'Click again to confirm',
+    reset_accounts_desc: 'Deletes all pilots, drones and markers. Next pilot gets ID #1.',
+    reset_accounts_done: 'All data cleared.',
+    accounts_section: 'Data management',
   },
   pl: {
     search: 'Szukaj lokalizacji...', map: 'Mapa', profile: 'Profil',
@@ -100,6 +110,11 @@ const i18n = {
     view_profile: 'Profil pilota',
     language: 'Język',
     drone: 'Dron',
+    reset_accounts: 'Resetuj wszystkie konta',
+    reset_accounts_confirm: 'Kliknij ponownie aby potwierdzić',
+    reset_accounts_desc: 'Usuwa wszystkich pilotów, drony i znaczniki. Następny pilot dostanie ID #1.',
+    reset_accounts_done: 'Dane wyczyszczone.',
+    accounts_section: 'Zarządzanie danymi',
   },
 };
 
@@ -198,6 +213,10 @@ export default function App() {
 
   // Demo mode: бэкенд недоступен
   const [demoMode, setDemoMode] = useState(false);
+
+  // Reset all accounts: double-confirm
+  const [resetConfirm, setResetConfirm] = useState(false);
+  const resetConfirmTimerRef = useRef(null);
 
   // Profile sheet — открывается из попапа метки
   // { pilot: {id, username}, drones: DroneProfile[] } | null
@@ -1105,6 +1124,38 @@ export default function App() {
               className="btn-danger"
             >
               {t.logout}
+            </button>
+          </div>
+
+          <div className="section">
+            <h3 className="section-title">{t.accounts_section}</h3>
+            <p className="section-desc">{t.reset_accounts_desc}</p>
+            <button
+              className={`btn-danger${resetConfirm ? ' btn-danger--confirm' : ''}`}
+              onClick={() => {
+                if (!resetConfirm) {
+                  setResetConfirm(true);
+                  resetConfirmTimerRef.current = setTimeout(() => setResetConfirm(false), 4000);
+                } else {
+                  clearTimeout(resetConfirmTimerRef.current);
+                  // Wipe everything
+                  lsSet(LS_PILOTS, []);
+                  lsSet(LS_DRONES, []);
+                  lsSet(LS_MARKERS, []);
+                  localStorage.removeItem('freqmap_pilot_id');
+                  localStorage.removeItem('freqmap_user');
+                  setPilotId(null);
+                  setUsername('');
+                  setDrones([]);
+                  setMarkers([]);
+                  setSelectedDroneId('');
+                  setDemoMode(false);
+                  setResetConfirm(false);
+                  setActiveTab('map');
+                }
+              }}
+            >
+              {resetConfirm ? t.reset_accounts_confirm : t.reset_accounts}
             </button>
           </div>
         </div>

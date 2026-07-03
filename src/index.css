@@ -1492,3 +1492,25 @@ select.field-input {
   gap: 4px;
   padding-top: 2px;
 }
+
+/* ==========================================================================
+   Section description text
+   ========================================================================== */
+.section-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+
+/* ==========================================================================
+   btn-danger confirm state (pulsing border)
+   ========================================================================== */
+.btn-danger--confirm {
+  animation: dangerPulse 0.6s ease-in-out infinite alternate;
+}
+
+@keyframes dangerPulse {
+  from { box-shadow: 0 0 0 0 rgba(255, 92, 92, 0.3); }
+  to   { box-shadow: 0 0 0 6px rgba(255, 92, 92, 0); }
+}
