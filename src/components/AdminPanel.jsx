@@ -220,14 +220,9 @@ export default function AdminPanel({ pilotId, isSuperAdmin, t, demoMode, onClose
           <h2 className="tab-title" style={{ margin: 0 }}>{t.admin_panel ?? 'Admin Panel'}</h2>
           {isSuperAdmin && <span className="admin-badge">SUPER</span>}
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn-icon" onClick={() => { loadStats(); loadSpots(); loadPilots(); loadAdmins(); }} aria-label="Refresh">
-            <RefreshCw size={17} />
-          </button>
-          <button className="btn-icon" onClick={onClose} aria-label="Close">
-            <X size={20} />
-          </button>
-        </div>
+        <button className="btn-icon" onClick={() => { loadStats(); loadSpots(); loadPilots(); loadAdmins(); }} aria-label="Refresh">
+          <RefreshCw size={17} />
+        </button>
       </div>
 
       {msg && (

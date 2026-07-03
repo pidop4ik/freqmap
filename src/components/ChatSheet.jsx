@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  X, UserPlus, Check, Ban, MessageCircle, Users, Radio,
+  UserPlus, Check, Ban, MessageCircle, Users, Radio,
   Send, ChevronLeft, UserMinus, Search,
 } from 'lucide-react';
 
@@ -77,9 +77,6 @@ export default function ChatSheet({ pilotId, username, lang, t, markers, onClose
               : (t.chat ?? 'Chat')}
           </h2>
         </div>
-        <button className="btn-icon" onClick={onClose} aria-label="Close">
-          <X size={20} />
-        </button>
       </div>
 
       {/* Inner: DM thread */}

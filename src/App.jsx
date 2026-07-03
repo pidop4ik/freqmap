@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Map as MapIcon, User, Settings, Crosshair, Globe, Trash2, Plus, AlertTriangle, Radio, X, ExternalLink, Maximize2, Zap, Weight, Pencil, ChevronDown, ChevronUp, Cpu, Info, Save, ShieldCheck, UserX, Heart, MessageCircle, MapPin } from 'lucide-react';
+import { Map as MapIcon, User, Settings, Crosshair, Globe, Trash2, Plus, AlertTriangle, Radio, ExternalLink, Maximize2, Zap, Weight, Pencil, ChevronDown, ChevronUp, Cpu, Info, Save, ShieldCheck, UserX, Heart, MessageCircle, MapPin } from 'lucide-react';
 
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
@@ -15,7 +15,79 @@ import AdminPanel from './components/AdminPanel.jsx';
 import ProposeSpotSheet from './components/ProposeSpotSheet.jsx';
 import { findConflictingMarkers } from './data/frequencies.js';
 
-// Fix Leaflet default icon
+// ---------------------------------------------------------------------------
+// Custom SVG marker icons
+// ---------------------------------------------------------------------------
+function makeSvgIcon(svgContent, size = 40, anchor = [20, 40]) {
+  return L.divIcon({
+    html: svgContent,
+    className: '',
+    iconSize: [size, size],
+    iconAnchor: anchor,
+    popupAnchor: [0, -size],
+  });
+}
+
+// Drone flight icon — top-down drone silhouette with glow
+const DroneIcon = makeSvgIcon(`
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 44" width="44" height="44">
+  <defs>
+    <filter id="glow-d" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <g filter="url(#glow-d)" opacity="0.95">
+    <!-- Props blur rings -->
+    <circle cx="10" cy="10" r="7" fill="none" stroke="#e2a15c" stroke-width="1.5" opacity="0.45"/>
+    <circle cx="34" cy="10" r="7" fill="none" stroke="#e2a15c" stroke-width="1.5" opacity="0.45"/>
+    <circle cx="10" cy="34" r="7" fill="none" stroke="#e2a15c" stroke-width="1.5" opacity="0.45"/>
+    <circle cx="34" cy="34" r="7" fill="none" stroke="#e2a15c" stroke-width="1.5" opacity="0.45"/>
+    <!-- Arms -->
+    <line x1="22" y1="18" x2="14" y2="14" stroke="#e2a15c" stroke-width="2.2" stroke-linecap="round"/>
+    <line x1="22" y1="18" x2="30" y2="14" stroke="#e2a15c" stroke-width="2.2" stroke-linecap="round"/>
+    <line x1="22" y1="26" x2="14" y2="30" stroke="#e2a15c" stroke-width="2.2" stroke-linecap="round"/>
+    <line x1="22" y1="26" x2="30" y2="30" stroke="#e2a15c" stroke-width="2.2" stroke-linecap="round"/>
+    <!-- Body -->
+    <rect x="17" y="17" width="10" height="10" rx="3" fill="#e2a15c"/>
+    <!-- Center dot -->
+    <circle cx="22" cy="22" r="2.5" fill="#1d1b20"/>
+    <!-- Motor hubs -->
+    <circle cx="10" cy="10" r="2.8" fill="#e2a15c"/>
+    <circle cx="34" cy="10" r="2.8" fill="#e2a15c"/>
+    <circle cx="10" cy="34" r="2.8" fill="#e2a15c"/>
+    <circle cx="34" cy="34" r="2.8" fill="#e2a15c"/>
+  </g>
+</svg>`, 44, [22, 22]);
+
+// Drone flight icon — conflict (red)
+const DroneConflictIcon = makeSvgIcon(`
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 44" width="44" height="44">
+  <defs>
+    <filter id="glow-c" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <g filter="url(#glow-c)" opacity="0.95">
+    <circle cx="10" cy="10" r="7" fill="none" stroke="#f87171" stroke-width="1.5" opacity="0.45"/>
+    <circle cx="34" cy="10" r="7" fill="none" stroke="#f87171" stroke-width="1.5" opacity="0.45"/>
+    <circle cx="10" cy="34" r="7" fill="none" stroke="#f87171" stroke-width="1.5" opacity="0.45"/>
+    <circle cx="34" cy="34" r="7" fill="none" stroke="#f87171" stroke-width="1.5" opacity="0.45"/>
+    <line x1="22" y1="18" x2="14" y2="14" stroke="#f87171" stroke-width="2.2" stroke-linecap="round"/>
+    <line x1="22" y1="18" x2="30" y2="14" stroke="#f87171" stroke-width="2.2" stroke-linecap="round"/>
+    <line x1="22" y1="26" x2="14" y2="30" stroke="#f87171" stroke-width="2.2" stroke-linecap="round"/>
+    <line x1="22" y1="26" x2="30" y2="30" stroke="#f87171" stroke-width="2.2" stroke-linecap="round"/>
+    <rect x="17" y="17" width="10" height="10" rx="3" fill="#f87171"/>
+    <circle cx="22" cy="22" r="2.5" fill="#1d1b20"/>
+    <circle cx="10" cy="10" r="2.8" fill="#f87171"/>
+    <circle cx="34" cy="10" r="2.8" fill="#f87171"/>
+    <circle cx="10" cy="34" r="2.8" fill="#f87171"/>
+    <circle cx="34" cy="34" r="2.8" fill="#f87171"/>
+  </g>
+</svg>`, 44, [22, 22]);
+
+// Fix Leaflet default icon (fallback)
 const DefaultIcon = L.icon({
   iconUrl: icon,
   shadowUrl: iconShadow,
@@ -437,8 +509,13 @@ export default function App() {
   const [searchResults, setSearchResults] = useState([]);
   const searchTimeoutRef = useRef(null);
 
-  const [activeTab, setActiveTab] = useState('map');
+  // Single source of truth for navigation — no more per-sheet booleans
+  const [activeView, setActiveView] = useState('map');
+  // Previous view to restore after map-click menu
+  const prevViewRef = useRef('map');
   const [modalCoords, setModalCoords] = useState(null);
+  // 'drone' | 'spot' | null — map click action picker
+  const [mapClickMenu, setMapClickMenu] = useState(null);
   const [showNewDroneForm, setShowNewDroneForm] = useState(false);
   // 1 = basic info, 2 = specs (optional)
   const [addDroneStep, setAddDroneStep] = useState(1);
@@ -468,18 +545,8 @@ export default function App() {
     localStorage.setItem('freq_theme', String(idx));
   };
 
-  // Donate sheet
-  const [showDonate, setShowDonate] = useState(false);
-
-  // Chat sheet
-  const [showChat, setShowChat] = useState(false);
+  // Unread chat badge
   const [unreadCount, setUnreadCount] = useState(0);
-
-  // Admin panel sheet
-  const [showAdmin, setShowAdmin] = useState(false);
-
-  // Propose spot
-  const [showProposeSpot, setShowProposeSpot] = useState(false);
 
   // Demo mode: бэкенд недоступен
   const [demoMode, setDemoMode] = useState(false);
@@ -796,7 +863,7 @@ export default function App() {
       lsSet(LS_MARKERS, updated);
       setMarkers(updated);
       setModalCoords(null);
-      setActiveTab('map');
+      setActiveView('map');
       return;
     }
 
@@ -813,7 +880,7 @@ export default function App() {
       });
       if (res.ok) {
         setModalCoords(null);
-        setActiveTab('map');
+        setActiveView('map');
         loadData(pilotId);
       }
     } catch (err) {
@@ -1022,7 +1089,7 @@ export default function App() {
       )}
 
       {/* MAP VIEW — always mounted to keep map state */}
-      <div className={`map-wrapper ${activeTab !== 'map' ? 'map-wrapper--hidden' : ''}`}>
+      <div className={`map-wrapper ${activeView !== 'map' ? 'map-wrapper--hidden' : ''}`}>
 
         {/* Search bar */}
         <div className="search-container">
@@ -1083,8 +1150,9 @@ export default function App() {
           <MapController center={mapCenter} zoom={mapZoom} />
           <MapEvents
             onMapClick={(latlng) => {
+              if (!pilotId) return;
               setModalCoords(latlng);
-              setActiveTab('add_marker');
+              setMapClickMenu({ lat: latlng.lat, lng: latlng.lng });
             }}
           />
 
@@ -1094,7 +1162,7 @@ export default function App() {
               <Marker
                 key={m.id}
                 position={[m.coordinates.lat, m.coordinates.lng]}
-                icon={isConflict ? ConflictIcon : DefaultIcon}
+                icon={isConflict ? DroneConflictIcon : DroneIcon}
               >
                 <Popup>
                   <div className="popup-content">
@@ -1155,16 +1223,13 @@ export default function App() {
       </div>
 
       {/* PROFILE TAB */}
-      {activeTab === 'profile' && (
+      {activeView === 'profile' && (
         <div className="fullscreen-tab">
           <div className="tab-header">
             <div>
               <h2 className="tab-title">{username}</h2>
               <p className="tab-subtitle">Pilot #{pilotId}</p>
             </div>
-            <button onClick={() => setActiveTab('map')} className="btn-icon" aria-label="Close">
-              <X size={20} />
-            </button>
           </div>
 
           {/* Inline add-drone form */}
@@ -1346,7 +1411,7 @@ export default function App() {
       )}
 
       {/* SETTINGS TAB */}
-      {activeTab === 'settings' && (
+      {activeView === 'settings' && (
         <div className="fullscreen-tab">
           <div className="tab-header">
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -1354,11 +1419,8 @@ export default function App() {
                 {t.settings}
                 {demoMode && <span className="demo-tag">demo</span>}
               </h2>
-              {isAdmin && <span className="admin-badge">{t.admin_badge}</span>}
+              {(isAdmin || serverAdmin) && <span className="admin-badge">{t.admin_badge}</span>}
             </div>
-            <button onClick={() => setActiveTab('map')} className="btn-icon" aria-label="Close">
-              <X size={20} />
-            </button>
           </div>
 
           <div className="section">
@@ -1431,7 +1493,7 @@ export default function App() {
                 setDrones([]);
                 setMarkers([]);
                 setSelectedDroneId('');
-                setActiveTab('map');
+                setActiveView('map');
               }}
               className="btn-danger"
             >
@@ -1451,7 +1513,7 @@ export default function App() {
                   ? 'Знаешь хорошее место для полётов? Предложи его — после одобрения оно появится на карте.'
                   : 'Know a great flying spot? Submit it — after admin review it will appear on the map.'}
               </p>
-              <button className="btn-secondary" style={{ width: '100%' }} onClick={() => setShowProposeSpot(true)}>
+              <button className="btn-secondary" style={{ width: '100%' }} onClick={() => setActiveView('propose_spot')}>
                 <MapPin size={15} /> {t.propose_spot ?? 'Propose a Spot'}
               </button>
             </div>
@@ -1484,7 +1546,7 @@ export default function App() {
             </div>
             <button
               className="donate-tg-btn donate-tg-btn--muted"
-              onClick={() => setShowDonate(true)}
+              onClick={() => setActiveView('donate')}
             >
               <Heart size={15} />
               {t.donate}
@@ -1502,7 +1564,7 @@ export default function App() {
                   ? 'Full access: spots, pilots, admins, stats.'
                   : 'Manage spots and view statistics.'}
               </p>
-              <button className="btn-primary" style={{ width: '100%' }} onClick={() => { setShowAdmin(true); setActiveTab('map'); }}>
+              <button className="btn-primary" style={{ width: '100%' }} onClick={() => setActiveView('admin')}>
                 <ShieldCheck size={16} /> {t.admin_panel}
               </button>
 
@@ -1526,7 +1588,7 @@ export default function App() {
                         localStorage.removeItem('freqmap_user');
                         setPilotId(null); setUsername(''); setDrones([]); setMarkers([]);
                         setSelectedDroneId(''); setDemoMode(false); setResetConfirm(false);
-                        setActiveTab('map');
+                        setActiveView('map');
                       }
                     }}
                   >
@@ -1539,8 +1601,76 @@ export default function App() {
         </div>
       )}
 
+      {/* MAP CLICK MENU — выбор типа действия */}
+      {mapClickMenu && (
+        <div className="modal-overlay" role="dialog" aria-modal="true" onClick={() => setMapClickMenu(null)}>
+          <div className="map-action-card" onClick={(e) => e.stopPropagation()}>
+            <p className="modal-coords" style={{ marginBottom: 16 }}>
+              {mapClickMenu.lat.toFixed(5)}, {mapClickMenu.lng.toFixed(5)}
+            </p>
+            <div className="map-action-choices">
+              <button
+                className="map-action-btn"
+                onClick={() => {
+                  setMapClickMenu(null);
+                  setActiveView('add_marker');
+                }}
+              >
+                <span className="map-action-icon">
+                  <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" width="32" height="32">
+                    {/* Drone top-down: body + 4 arms + propellers */}
+                    <circle cx="16" cy="16" r="4" fill="currentColor" opacity="0.9"/>
+                    {/* Arms */}
+                    <line x1="16" y1="12" x2="11" y2="7" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    <line x1="16" y1="12" x2="21" y2="7" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    <line x1="16" y1="20" x2="11" y2="25" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    <line x1="16" y1="20" x2="21" y2="25" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    {/* Prop circles */}
+                    <circle cx="11" cy="7" r="3.5" stroke="currentColor" strokeWidth="1.5" fill="none" opacity="0.7"/>
+                    <circle cx="21" cy="7" r="3.5" stroke="currentColor" strokeWidth="1.5" fill="none" opacity="0.7"/>
+                    <circle cx="11" cy="25" r="3.5" stroke="currentColor" strokeWidth="1.5" fill="none" opacity="0.7"/>
+                    <circle cx="21" cy="25" r="3.5" stroke="currentColor" strokeWidth="1.5" fill="none" opacity="0.7"/>
+                  </svg>
+                </span>
+                <span className="map-action-label">
+                  {lang === 'ru' ? 'Полёт дрона' : lang === 'pl' ? 'Lot drona' : 'Drone flight'}
+                </span>
+                <span className="map-action-desc">
+                  {lang === 'ru' ? 'Отметить зону полёта' : 'Mark flying zone'}
+                </span>
+              </button>
+
+              <button
+                className="map-action-btn"
+                onClick={() => {
+                  setMapClickMenu(null);
+                  setActiveView('propose_spot');
+                }}
+              >
+                <span className="map-action-icon">
+                  <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" width="32" height="32">
+                    <path d="M16 3C11.582 3 8 6.582 8 11c0 6.627 8 18 8 18s8-11.373 8-18c0-4.418-3.582-8-8-8z" fill="currentColor" opacity="0.15" stroke="currentColor" strokeWidth="1.8"/>
+                    <circle cx="16" cy="11" r="3.5" fill="currentColor"/>
+                    <path d="M13 27h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" opacity="0.5"/>
+                  </svg>
+                </span>
+                <span className="map-action-label">
+                  {lang === 'ru' ? 'Предложить спот' : lang === 'pl' ? 'Zaproponuj spot' : 'Propose spot'}
+                </span>
+                <span className="map-action-desc">
+                  {lang === 'ru' ? 'Добавить место для полётов' : 'Add a flying location'}
+                </span>
+              </button>
+            </div>
+            <button className="btn-ghost" style={{ width: '100%', marginTop: 8 }} onClick={() => setMapClickMenu(null)}>
+              {t.cancel}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ADD MARKER MODAL */}
-      {activeTab === 'add_marker' && (
+      {activeView === 'add_marker' && (
         <div className="modal-overlay" role="dialog" aria-modal="true">
           <div className="modal-card">
             <h3 className="modal-title">{t.put_marker}</h3>
@@ -1586,7 +1716,7 @@ export default function App() {
 
             <div className="form-actions">
               <button
-                onClick={() => { setModalCoords(null); setActiveTab('map'); }}
+                onClick={() => { setModalCoords(null); setActiveView('map'); }}
                 className="btn-secondary"
               >
                 {t.cancel}
@@ -1617,46 +1747,45 @@ export default function App() {
         />
       )}
 
-      {/* PROPOSE SPOT */}
-      {showProposeSpot && pilotId !== null && (
+      {/* PROPOSE SPOT SHEET */}
+      {activeView === 'propose_spot' && pilotId !== null && (
         <ProposeSpotSheet
           pilotId={pilotId}
-          coords={null}
-          onClose={() => setShowProposeSpot(false)}
+          coords={modalCoords}
+          onClose={() => setActiveView('map')}
           t={t}
           demoMode={demoMode}
         />
       )}
 
       {/* ADMIN PANEL */}
-      {showAdmin && effectiveAdmin && (
+      {activeView === 'admin' && effectiveAdmin && (
         <AdminPanel
           pilotId={pilotId}
           isSuperAdmin={serverSuper || isAdmin}
           t={t}
           demoMode={demoMode}
-          onClose={() => setShowAdmin(false)}
+          onClose={() => setActiveView('settings')}
         />
       )}
 
       {/* DONATE SHEET */}
-      {showDonate && (
-        <DonateSheet lang={lang} onClose={() => setShowDonate(false)} />
+      {activeView === 'donate' && (
+        <DonateSheet lang={lang} onClose={() => setActiveView('settings')} />
       )}
 
       {/* CHAT SHEET */}
-      {showChat && pilotId !== null && (
+      {activeView === 'chat' && pilotId !== null && (
         <ChatSheet
           pilotId={pilotId}
           username={username}
           lang={lang}
           t={t}
           markers={markers}
-          onClose={() => { setShowChat(false); setUnreadCount(0); }}
+          onClose={() => { setActiveView('map'); setUnreadCount(0); }}
           onUnreadChange={(count) => {
             if (typeof count === 'number') setUnreadCount(count);
             else {
-              // refresh count from API
               fetch(`http://localhost:8000/api/messages/${pilotId}/unread/count`)
                 .then((r) => r.ok ? r.json() : { count: 0 })
                 .then(({ count: c }) => setUnreadCount(c))
@@ -1669,8 +1798,8 @@ export default function App() {
       {/* BOTTOM NAV */}
       <nav className="bottom-nav" aria-label="Main navigation">
         <div className="bottom-nav__inner">
-          <NavItem icon={MapIcon} label={t.map} active={activeTab === 'map'} onClick={() => setActiveTab('map')} />
-          <NavItem icon={User} label={t.profile} active={activeTab === 'profile'} onClick={() => setActiveTab('profile')} />
+          <NavItem icon={MapIcon} label={t.map} active={activeView === 'map'} onClick={() => setActiveView('map')} />
+          <NavItem icon={User} label={t.profile} active={activeView === 'profile'} onClick={() => setActiveView('profile')} />
 
           <div className="fab-wrapper">
             <button onClick={locateMe} className="fab-btn" aria-label="My location">
@@ -1681,15 +1810,15 @@ export default function App() {
           <NavItem
             icon={MessageCircle}
             label={t.chat ?? 'Chat'}
-            active={showChat}
-            onClick={() => { if (pilotId !== null) setShowChat(true); }}
+            active={activeView === 'chat'}
+            onClick={() => { if (pilotId !== null) setActiveView('chat'); }}
             badge={unreadCount > 0 ? unreadCount : null}
           />
           <NavItem
             icon={Settings}
             label={t.settings}
-            active={activeTab === 'settings'}
-            onClick={() => setActiveTab('settings')}
+            active={activeView === 'settings'}
+            onClick={() => setActiveView('settings')}
             badge={conflictIds.size > 0 ? conflictIds.size : null}
           />
         </div>

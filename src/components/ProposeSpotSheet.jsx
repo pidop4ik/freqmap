@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MapPin, X, Check } from 'lucide-react';
+import { MapPin, Check } from 'lucide-react';
 
 const API = 'http://localhost:8000/api';
 
@@ -53,16 +53,16 @@ export default function ProposeSpotSheet({ pilotId, coords, onClose, t, demoMode
   };
 
   return (
-    <div className="sheet-overlay" role="dialog" aria-modal="true">
-      <div className="sheet-card">
-        <div className="sheet-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <MapPin size={18} color="var(--accent)" />
-            <h3 className="sheet-title">{t.propose_spot ?? 'Propose a Spot'}</h3>
-          </div>
-          <button className="btn-icon" onClick={onClose} aria-label="Close"><X size={20} /></button>
+    <div className="fullscreen-tab" role="dialog" aria-modal="true">
+      {/* Header */}
+      <div className="tab-header">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <MapPin size={18} color="var(--accent)" />
+          <h2 className="tab-title" style={{ margin: 0 }}>{t.propose_spot ?? 'Propose a Spot'}</h2>
         </div>
+      </div>
 
+      <div className="tab-body">
         {step === 2 ? (
           <div className="propose-success">
             <div className="propose-success__icon"><Check size={32} color="var(--accent)" /></div>

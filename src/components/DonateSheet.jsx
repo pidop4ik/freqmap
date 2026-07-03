@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Copy, Check, Heart } from 'lucide-react';
+import { Copy, Check, Heart } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
 // Crypto addresses
@@ -119,25 +119,17 @@ export default function DonateSheet({ lang = 'en', onClose }) {
   const s = STR[lang] ?? STR.en;
 
   return (
-    <div className="profile-sheet" role="dialog" aria-modal="true" aria-label={s.title}>
-      {/* Backdrop */}
-      <div className="profile-sheet__backdrop" onClick={onClose} />
-
-      {/* Panel */}
-      <div className="profile-sheet__panel">
-        {/* Header */}
-        <div className="profile-sheet__header">
-          <div className="donate-sheet__title-row">
-            <Heart size={18} color="var(--danger)" fill="var(--danger)" />
-            <h2 className="donate-sheet__title">{s.title}</h2>
-          </div>
-          <button className="btn-icon" onClick={onClose} aria-label={s.close}>
-            <X size={20} />
-          </button>
+    <div className="fullscreen-tab" role="dialog" aria-modal="true" aria-label={s.title}>
+      {/* Header */}
+      <div className="tab-header">
+        <div className="donate-sheet__title-row">
+          <Heart size={18} color="var(--danger)" fill="var(--danger)" />
+          <h2 className="tab-title" style={{ margin: 0 }}>{s.title}</h2>
         </div>
+      </div>
 
-        {/* Body */}
-        <div className="profile-sheet__body">
+      {/* Body */}
+      <div className="tab-body">
           <p className="donate-sheet__subtitle">{s.subtitle}</p>
 
           {/* Warning */}
@@ -165,7 +157,6 @@ export default function DonateSheet({ lang = 'en', onClose }) {
             </svg>
             {s.tg} · @arduinomini
           </a>
-        </div>
       </div>
     </div>
   );
