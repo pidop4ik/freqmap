@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Map as MapIcon, User, Settings, Crosshair, Globe, Trash2, Plus, AlertTriangle, Radio, X, ExternalLink, Maximize2, Zap, Weight, Pencil, ChevronDown, ChevronUp, Cpu, Info, Save, ShieldCheck, UserX, Heart } from 'lucide-react';
+import { Map as MapIcon, User, Settings, Crosshair, Globe, Trash2, Plus, AlertTriangle, Radio, X, ExternalLink, Maximize2, Zap, Weight, Pencil, ChevronDown, ChevronUp, Cpu, Info, Save, ShieldCheck, UserX, Heart, MessageCircle } from 'lucide-react';
 
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
@@ -10,6 +10,7 @@ import FrequencySelector from './components/FrequencySelector.jsx';
 import ConflictAlert from './components/ConflictAlert.jsx';
 import PilotProfileSheet from './components/PilotProfileSheet.jsx';
 import DonateSheet from './components/DonateSheet.jsx';
+import ChatSheet from './components/ChatSheet.jsx';
 import { findConflictingMarkers } from './data/frequencies.js';
 
 // Fix Leaflet default icon
@@ -69,6 +70,29 @@ const i18n = {
     admin_markers: 'меток',
     admin_drones: 'дронов',
     admin_badge: 'ADMIN',
+    chat: 'Чат',
+    friends: 'Друзья',
+    messages: 'Сообщения',
+    location_tab: 'Точки',
+    location_chat: 'Чат точки',
+    search_pilots: 'Поиск по позывному...',
+    find: 'Найти',
+    add_friend: 'Добавить в друзья',
+    already_friends: 'Уже друзья',
+    request_sent: 'Запрос отправлен',
+    pilot_not_found: 'Пилот не найден',
+    incoming_requests: 'Входящие запросы',
+    my_friends: 'Мои друзья',
+    no_friends: 'Друзей нет. Найдите пилота выше.',
+    no_friends_for_dm: 'Сначала добавьте друзей.',
+    no_messages: 'Сообщений нет. Напишите первым!',
+    no_location_msgs: 'Здесь пока нет сообщений.',
+    no_markers_for_chat: 'Нет активных меток. Поставьте метку для чата.',
+    type_message: 'Сообщение...',
+    send_message: 'Написать',
+    accept: 'Принять',
+    reject: 'Отклонить',
+    remove_friend: 'Удалить из друзей',
     donate: 'Донат',
     about_section: 'О проекте',
     about_desc: 'FreqMap — инструмент для FPV пилотов. Помогает координировать частоты на полётных точках, чтобы избежать помех.',
@@ -109,6 +133,29 @@ const i18n = {
     admin_markers: 'markers',
     admin_drones: 'drones',
     admin_badge: 'ADMIN',
+    chat: 'Chat',
+    friends: 'Friends',
+    messages: 'Messages',
+    location_tab: 'Spots',
+    location_chat: 'Spot chat',
+    search_pilots: 'Search by callsign...',
+    find: 'Find',
+    add_friend: 'Add friend',
+    already_friends: 'Friends',
+    request_sent: 'Sent',
+    pilot_not_found: 'Pilot not found',
+    incoming_requests: 'Incoming requests',
+    my_friends: 'My friends',
+    no_friends: 'No friends yet. Search above.',
+    no_friends_for_dm: 'Add friends first.',
+    no_messages: 'No messages yet. Say hi!',
+    no_location_msgs: 'No messages at this spot yet.',
+    no_markers_for_chat: 'No active markers. Place one to chat.',
+    type_message: 'Message...',
+    send_message: 'Message',
+    accept: 'Accept',
+    reject: 'Reject',
+    remove_friend: 'Remove friend',
     donate: 'Donate',
     about_section: 'About',
     about_desc: 'FreqMap is a tool for FPV pilots. It helps coordinate video frequencies at flying spots to avoid interference.',
@@ -149,6 +196,29 @@ const i18n = {
     admin_markers: 'znaczników',
     admin_drones: 'dronów',
     admin_badge: 'ADMIN',
+    chat: 'Czat',
+    friends: 'Znajomi',
+    messages: 'Wiadomości',
+    location_tab: 'Punkty',
+    location_chat: 'Czat punktu',
+    search_pilots: 'Szukaj po znaku...',
+    find: 'Szukaj',
+    add_friend: 'Dodaj znajomego',
+    already_friends: 'Znajomi',
+    request_sent: 'Wysłano',
+    pilot_not_found: 'Nie znaleziono pilota',
+    incoming_requests: 'Zaproszenia',
+    my_friends: 'Moi znajomi',
+    no_friends: 'Brak znajomych. Wyszukaj pilota powyżej.',
+    no_friends_for_dm: 'Najpierw dodaj znajomych.',
+    no_messages: 'Brak wiadomości. Napisz coś!',
+    no_location_msgs: 'Brak wiadomości w tym miejscu.',
+    no_markers_for_chat: 'Brak aktywnych znaczników. Dodaj jeden.',
+    type_message: 'Wiadomość...',
+    send_message: 'Napisz',
+    accept: 'Akceptuj',
+    reject: 'Odrzuć',
+    remove_friend: 'Usuń znajomego',
     donate: 'Wsparcie',
     about_section: 'O projekcie',
     about_desc: 'FreqMap to narzędzie dla pilotów FPV. Pomaga koordynować częstotliwości wideo na polach lotów, aby uniknąć zakłóceń.',
@@ -286,6 +356,10 @@ export default function App() {
 
   // Donate sheet
   const [showDonate, setShowDonate] = useState(false);
+
+  // Chat sheet
+  const [showChat, setShowChat] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   // Demo mode: бэкенд недоступен
   const [demoMode, setDemoMode] = useState(false);
@@ -1377,6 +1451,28 @@ export default function App() {
         <DonateSheet lang={lang} onClose={() => setShowDonate(false)} />
       )}
 
+      {/* CHAT SHEET */}
+      {showChat && pilotId !== null && (
+        <ChatSheet
+          pilotId={pilotId}
+          username={username}
+          lang={lang}
+          t={t}
+          markers={markers}
+          onClose={() => { setShowChat(false); setUnreadCount(0); }}
+          onUnreadChange={(count) => {
+            if (typeof count === 'number') setUnreadCount(count);
+            else {
+              // refresh count from API
+              fetch(`http://localhost:8000/api/messages/${pilotId}/unread/count`)
+                .then((r) => r.ok ? r.json() : { count: 0 })
+                .then(({ count: c }) => setUnreadCount(c))
+                .catch(() => {});
+            }
+          }}
+        />
+      )}
+
       {/* BOTTOM NAV */}
       <nav className="bottom-nav" aria-label="Main navigation">
         <div className="bottom-nav__inner">
@@ -1390,17 +1486,18 @@ export default function App() {
           </div>
 
           <NavItem
+            icon={MessageCircle}
+            label={t.chat ?? 'Chat'}
+            active={showChat}
+            onClick={() => { if (pilotId !== null) setShowChat(true); }}
+            badge={unreadCount > 0 ? unreadCount : null}
+          />
+          <NavItem
             icon={Settings}
             label={t.settings}
             active={activeTab === 'settings'}
             onClick={() => setActiveTab('settings')}
             badge={conflictIds.size > 0 ? conflictIds.size : null}
-          />
-          <NavItem
-            icon={Heart}
-            label={t.donate ?? 'Donate'}
-            active={showDonate}
-            onClick={() => setShowDonate(true)}
           />
         </div>
       </nav>
