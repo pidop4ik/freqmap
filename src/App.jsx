@@ -2,13 +2,14 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Map as MapIcon, User, Settings, Crosshair, Globe, Trash2, Plus, AlertTriangle, Radio, X } from 'lucide-react';
+import { Map as MapIcon, User, Settings, Crosshair, Globe, Trash2, Plus, AlertTriangle, Radio, X, ExternalLink } from 'lucide-react';
 
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 import FrequencySelector from './components/FrequencySelector.jsx';
 import DroneCard from './components/DroneCard.jsx';
 import ConflictAlert from './components/ConflictAlert.jsx';
+import PilotProfileSheet from './components/PilotProfileSheet.jsx';
 import { findConflictingMarkers } from './data/frequencies.js';
 
 // Fix Leaflet default icon
@@ -169,6 +170,10 @@ export default function App() {
 
   // Demo mode: бэкенд недоступен
   const [demoMode, setDemoMode] = useState(false);
+
+  // Profile sheet — открывается из попапа метки
+  // { pilot: {id, username}, drones: DroneProfile[] } | null
+  const [profileSheet, setProfileSheet] = useState(null);
 
   // Конфликты частот
   const conflictIds = useMemo(() => findConflictingMarkers(markers), [markers]);
@@ -342,6 +347,93 @@ export default function App() {
       }
     }
   };
+
+  // ---------------------------------------------------------------------------
+  // Profile sheet helpers
+  // ---------------------------------------------------------------------------
+  const openPilotProfile = useCallback(async (marker) => {
+    const pilot = { id: marker.pilot_id, username: marker.pilot_username };
+
+    // Если это наш маркер — дроны уже в state
+    if (marker.pilot_id === pilotId) {
+      setProfileSheet({ pilot, drones });
+      return;
+    }
+
+    // Чужой пилот — пробуем загрузить дроны
+    if (demoMode) {
+      const allDrones = lsGet(LS_DRONES, []);
+      const pilotDrones = allDrones.filter((d) => d.pilot_id === marker.pilot_id);
+      setProfileSheet({ pilot, drones: pilotDrones });
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/pilots/${marker.pilot_id}/drones`);
+      const pilotDrones = res.ok ? await res.json() : [];
+      setProfileSheet({ pilot, drones: pilotDrones });
+    } catch {
+      // При ошибке — просто открываем с пустым ангаром
+      setProfileSheet({ pilot, drones: [] });
+    }
+  }, [pilotId, drones, demoMode]);
+
+  const handleSheetDeleteDrone = useCallback(async (droneId) => {
+    if (demoMode) {
+      const allDrones = lsGet(LS_DRONES, []);
+      const updated = allDrones.filter((d) => d.id !== droneId);
+      lsSet(LS_DRONES, updated);
+      const myDrones = updated.filter((d) => d.pilot_id === pilotId);
+      setDrones(myDrones);
+      setProfileSheet((prev) =>
+        prev ? { ...prev, drones: prev.drones.filter((d) => d.id !== droneId) } : null
+      );
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/pilots/${pilotId}/drones/${droneId}`, { method: 'DELETE' });
+      if (res.ok) {
+        await loadData(pilotId);
+        setProfileSheet((prev) =>
+          prev ? { ...prev, drones: prev.drones.filter((d) => d.id !== droneId) } : null
+        );
+      }
+    } catch (err) {
+      console.error('[FreqMap] sheetDeleteDrone error:', err);
+    }
+  }, [demoMode, pilotId, loadData]);
+
+  const handleSheetUpdateDrone = useCallback(async (droneId, patch) => {
+    if (demoMode) {
+      const allDrones = lsGet(LS_DRONES, []);
+      const updated = allDrones.map((d) => d.id === droneId ? { ...d, ...patch } : d);
+      lsSet(LS_DRONES, updated);
+      const myDrones = updated.filter((d) => d.pilot_id === pilotId);
+      setDrones(myDrones);
+      setProfileSheet((prev) =>
+        prev
+          ? { ...prev, drones: prev.drones.map((d) => d.id === droneId ? { ...d, ...patch } : d) }
+          : null
+      );
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/pilots/${pilotId}/drones/${droneId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      });
+      if (res.ok) {
+        await loadData(pilotId);
+        setProfileSheet((prev) =>
+          prev
+            ? { ...prev, drones: prev.drones.map((d) => d.id === droneId ? { ...d, ...patch } : d) }
+            : null
+        );
+      }
+    } catch (err) {
+      console.error('[FreqMap] sheetUpdateDrone error:', err);
+    }
+  }, [demoMode, pilotId, loadData]);
 
   // ---------------------------------------------------------------------------
   // Markers
@@ -702,14 +794,22 @@ export default function App() {
                         <span>{m.drone?.power_mw ? `${m.drone.power_mw} mW` : '—'}</span>
                       </div>
                     </div>
-                    {m.pilot_id === pilotId && (
+                    <div className="popup-footer">
                       <button
-                        onClick={() => handleDeleteMarker(m.id)}
-                        className="btn-danger popup-delete"
+                        className="btn-popup-profile"
+                        onClick={() => openPilotProfile(m)}
                       >
-                        <Trash2 size={13} /> {t.remove}
+                        <ExternalLink size={12} /> View Profile
                       </button>
-                    )}
+                      {m.pilot_id === pilotId && (
+                        <button
+                          onClick={() => handleDeleteMarker(m.id)}
+                          className="btn-danger popup-delete"
+                        >
+                          <Trash2 size={13} /> {t.remove}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </Popup>
               </Marker>
@@ -950,6 +1050,19 @@ export default function App() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* PILOT PROFILE SHEET */}
+      {profileSheet && (
+        <PilotProfileSheet
+          pilot={profileSheet.pilot}
+          drones={profileSheet.drones}
+          isOwner={profileSheet.pilot.id === pilotId}
+          conflictIds={conflictIds}
+          onClose={() => setProfileSheet(null)}
+          onDeleteDrone={handleSheetDeleteDrone}
+          onUpdateDrone={handleSheetUpdateDrone}
+        />
       )}
 
       {/* BOTTOM NAV */}
