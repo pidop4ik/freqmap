@@ -1271,3 +1271,131 @@ select.field-input {
   padding: 10px 12px;
   white-space: pre-wrap;
 }
+
+/* ==========================================================================
+   Drone tab bar inside profile sheet
+   ========================================================================== */
+.drone-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 12px;
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 3px;
+}
+
+.drone-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+
+.drone-tab:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.drone-tab--active {
+  background: var(--surface);
+  color: var(--accent);
+  border: 1px solid var(--border);
+}
+
+.drone-tab-content {
+  min-height: 60px;
+}
+
+/* ==========================================================================
+   Inline confirm-delete row
+   ========================================================================== */
+.profile-drone-card__confirm-delete {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-right: 10px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.confirm-delete__label {
+  font-size: 11px;
+  color: var(--danger);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.btn-danger--sm {
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 5px;
+  background: var(--danger-dim);
+  border: 1px solid rgba(255, 92, 92, 0.4);
+  color: var(--danger);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-danger--sm:hover {
+  background: rgba(255, 92, 92, 0.25);
+}
+
+.btn-ghost--sm {
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 5px;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-ghost--sm:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.btn-ghost:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+/* ==========================================================================
+   Edit form save/cancel row
+   ========================================================================== */
+.edit-form__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}

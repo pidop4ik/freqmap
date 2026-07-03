@@ -1059,6 +1059,7 @@ export default function App() {
           drones={profileSheet.drones}
           isOwner={profileSheet.pilot.id === pilotId}
           conflictIds={conflictIds}
+          lang={lang}
           onClose={() => setProfileSheet(null)}
           onDeleteDrone={handleSheetDeleteDrone}
           onUpdateDrone={handleSheetUpdateDrone}
