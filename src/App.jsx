@@ -2,13 +2,14 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Map as MapIcon, User, Settings, Crosshair, Globe, Trash2, Plus, AlertTriangle, Radio, X, ExternalLink, Maximize2, Zap, Weight, Pencil, ChevronDown, ChevronUp, Cpu, Info, Save, ShieldCheck, UserX } from 'lucide-react';
+import { Map as MapIcon, User, Settings, Crosshair, Globe, Trash2, Plus, AlertTriangle, Radio, X, ExternalLink, Maximize2, Zap, Weight, Pencil, ChevronDown, ChevronUp, Cpu, Info, Save, ShieldCheck, UserX, Heart } from 'lucide-react';
 
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 import FrequencySelector from './components/FrequencySelector.jsx';
 import ConflictAlert from './components/ConflictAlert.jsx';
 import PilotProfileSheet from './components/PilotProfileSheet.jsx';
+import DonateSheet from './components/DonateSheet.jsx';
 import { findConflictingMarkers } from './data/frequencies.js';
 
 // Fix Leaflet default icon
@@ -68,6 +69,12 @@ const i18n = {
     admin_markers: 'меток',
     admin_drones: 'дронов',
     admin_badge: 'ADMIN',
+    donate: 'Донат',
+    about_section: 'О проекте',
+    about_desc: 'FreqMap — инструмент для FPV пилотов. Помогает координировать частоты на полётных точках, чтобы избежать помех.',
+    about_author: 'Автор',
+    about_contact: 'Контакт',
+    about_version: 'Версия',
   },
   en: {
     search: 'Search location...', map: 'Map', profile: 'Profile',
@@ -102,6 +109,12 @@ const i18n = {
     admin_markers: 'markers',
     admin_drones: 'drones',
     admin_badge: 'ADMIN',
+    donate: 'Donate',
+    about_section: 'About',
+    about_desc: 'FreqMap is a tool for FPV pilots. It helps coordinate video frequencies at flying spots to avoid interference.',
+    about_author: 'Author',
+    about_contact: 'Contact',
+    about_version: 'Version',
   },
   pl: {
     search: 'Szukaj lokalizacji...', map: 'Mapa', profile: 'Profil',
@@ -136,6 +149,12 @@ const i18n = {
     admin_markers: 'znaczników',
     admin_drones: 'dronów',
     admin_badge: 'ADMIN',
+    donate: 'Wsparcie',
+    about_section: 'O projekcie',
+    about_desc: 'FreqMap to narzędzie dla pilotów FPV. Pomaga koordynować częstotliwości wideo na polach lotów, aby uniknąć zakłóceń.',
+    about_author: 'Autor',
+    about_contact: 'Kontakt',
+    about_version: 'Wersja',
   },
 };
 
@@ -264,6 +283,9 @@ export default function App() {
 
   // Admin flag — derived from pilotId
   const isAdmin = pilotId === ADMIN_ID;
+
+  // Donate sheet
+  const [showDonate, setShowDonate] = useState(false);
 
   // Demo mode: бэкенд недоступен
   const [demoMode, setDemoMode] = useState(false);
@@ -1184,6 +1206,40 @@ export default function App() {
             </button>
           </div>
 
+          {/* ABOUT SECTION */}
+          <div className="section about-section">
+            <h3 className="section-title">{t.about_section}</h3>
+            <p className="section-desc">{t.about_desc}</p>
+            <div className="about-rows">
+              <div className="about-row">
+                <span className="about-row__label">{t.about_author}</span>
+                <span className="about-row__value">poluprovodnik</span>
+              </div>
+              <div className="about-row">
+                <span className="about-row__label">{t.about_contact}</span>
+                <a
+                  href="https://t.me/arduinomini"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="about-row__link"
+                >
+                  @arduinomini
+                </a>
+              </div>
+              <div className="about-row">
+                <span className="about-row__label">{t.about_version}</span>
+                <span className="about-row__value">1.0.0</span>
+              </div>
+            </div>
+            <button
+              className="donate-tg-btn donate-tg-btn--muted"
+              onClick={() => setShowDonate(true)}
+            >
+              <Heart size={15} />
+              {t.donate}
+            </button>
+          </div>
+
           {/* ADMIN PANEL — только для poluprovodnik (ID 0) */}
           {isAdmin && (
             <div className="section admin-section">
@@ -1316,6 +1372,11 @@ export default function App() {
         />
       )}
 
+      {/* DONATE SHEET */}
+      {showDonate && (
+        <DonateSheet lang={lang} onClose={() => setShowDonate(false)} />
+      )}
+
       {/* BOTTOM NAV */}
       <nav className="bottom-nav" aria-label="Main navigation">
         <div className="bottom-nav__inner">
@@ -1336,10 +1397,10 @@ export default function App() {
             badge={conflictIds.size > 0 ? conflictIds.size : null}
           />
           <NavItem
-            icon={Globe}
-            label={lang.toUpperCase()}
-            active={false}
-            onClick={() => switchLang(lang === 'ru' ? 'en' : lang === 'en' ? 'pl' : 'ru')}
+            icon={Heart}
+            label={t.donate ?? 'Donate'}
+            active={showDonate}
+            onClick={() => setShowDonate(true)}
           />
         </div>
       </nav>

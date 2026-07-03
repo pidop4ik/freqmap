@@ -1613,3 +1613,231 @@ select.field-input {
   gap: 6px;
   flex-shrink: 0;
 }
+
+/* ==========================================================================
+   Donate sheet
+   ========================================================================== */
+.donate-sheet__title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.donate-sheet__title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+}
+
+.donate-sheet__subtitle {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.55;
+  margin-bottom: 12px;
+}
+
+.donate-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: rgba(226, 161, 92, 0.08);
+  border: 1px solid rgba(226, 161, 92, 0.25);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 12px;
+  color: var(--accent);
+  line-height: 1.5;
+  margin-bottom: 16px;
+}
+
+.donate-warning__icon {
+  font-weight: 800;
+  font-size: 14px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.donate-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.donate-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.donate-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.donate-card__coin-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.donate-card__symbol {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.donate-card__name {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.donate-card__note {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  padding: 1px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.donate-card__address-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+.donate-card__address {
+  font-size: 11px;
+  font-family: var(--font-mono, monospace);
+  color: var(--text);
+  word-break: break-all;
+  flex: 1;
+  line-height: 1.4;
+}
+
+.donate-card__copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 9px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.donate-card__copy:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.donate-card__copy--done {
+  background: rgba(74, 222, 128, 0.1);
+  border-color: rgba(74, 222, 128, 0.4);
+  color: #4ade80;
+}
+
+.donate-tg-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 16px;
+  background: rgba(41, 161, 229, 0.1);
+  border: 1px solid rgba(41, 161, 229, 0.3);
+  color: #29a1e5;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.15s;
+}
+
+.donate-tg-btn:hover {
+  background: rgba(41, 161, 229, 0.18);
+}
+
+.donate-tg-btn--muted {
+  background: var(--accent-dim);
+  border-color: rgba(226, 161, 92, 0.3);
+  color: var(--accent);
+  margin-top: 10px;
+}
+
+.donate-tg-btn--muted:hover {
+  background: rgba(226, 161, 92, 0.18);
+}
+
+/* ==========================================================================
+   About section in Settings
+   ========================================================================== */
+.about-section {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.about-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+.about-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  font-size: 13px;
+  border-bottom: 1px solid var(--border);
+}
+
+.about-row:last-child {
+  border-bottom: none;
+}
+
+.about-row__label {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.about-row__value {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.about-row__link {
+  color: #29a1e5;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.about-row__link:hover {
+  text-decoration: underline;
+}
