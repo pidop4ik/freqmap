@@ -1773,6 +1773,7 @@ export default function App() {
           onClose={() => setActiveView('map')}
           t={t}
           demoMode={demoMode}
+          apiBase={API_BASE}
         />
       )}
 
@@ -1784,6 +1785,7 @@ export default function App() {
           t={t}
           demoMode={demoMode}
           onClose={() => setActiveView('settings')}
+          apiBase={API_BASE}
         />
       )}
 

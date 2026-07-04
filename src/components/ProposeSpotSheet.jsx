@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
 import { MapPin, Check } from 'lucide-react';
 
-const API = 'http://localhost:8000/api';
-
 const TAG_OPTIONS = ['park', 'field', 'forest', 'urban', 'water', 'hills', 'training', 'race'];
 
-export default function ProposeSpotSheet({ pilotId, coords, onClose, t, demoMode, lsSpots, lsSetSpots }) {
+export default function ProposeSpotSheet({ pilotId, coords, onClose, t, demoMode, lsSpots, lsSetSpots, apiBase }) {
   const [name, setName]         = useState('');
   const [desc, setDesc]         = useState('');
   const [tags, setTags]         = useState([]);
@@ -35,7 +33,7 @@ export default function ProposeSpotSheet({ pilotId, coords, onClose, t, demoMode
       return;
     }
     try {
-      const res = await fetch(`${API}/spots`, {
+      const res = await fetch(`${apiBase}/spots`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

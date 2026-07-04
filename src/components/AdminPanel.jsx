@@ -4,8 +4,6 @@ import {
   UserX, UserCheck, RefreshCw, ChevronDown, ChevronUp, AlertTriangle
 } from 'lucide-react';
 
-const API = 'http://localhost:8000/api';
-
 // ---------------------------------------------------------------------------
 // Stat card
 // ---------------------------------------------------------------------------
@@ -121,7 +119,7 @@ function PilotRow({ pilot, isSuperAdmin, pilotId, onDelete, onGrant, onRevoke })
 // ---------------------------------------------------------------------------
 const TABS = ['stats', 'spots', 'pilots', 'admins'];
 
-export default function AdminPanel({ pilotId, isSuperAdmin, t, demoMode, onClose }) {
+export default function AdminPanel({ pilotId, isSuperAdmin, t, demoMode, onClose, apiBase }) {
   const [tab, setTab] = useState('stats');
   const [stats, setStats]   = useState(null);
   const [spots, setSpots]   = useState([]);
@@ -137,7 +135,7 @@ export default function AdminPanel({ pilotId, isSuperAdmin, t, demoMode, onClose
   const loadStats = useCallback(async () => {
     if (demoMode) return;
     try {
-      const r = await fetch(`${API}/stats?pilot_id=${pilotId}`);
+      const r = await fetch(`${apiBase}/stats?pilot_id=${pilotId}`);
       if (r.ok) setStats(await r.json());
     } catch {}
   }, [pilotId, demoMode]);
@@ -145,7 +143,7 @@ export default function AdminPanel({ pilotId, isSuperAdmin, t, demoMode, onClose
   const loadSpots = useCallback(async () => {
     if (demoMode) return;
     try {
-      const r = await fetch(`${API}/spots?status=${spotsFilter}`);
+      const r = await fetch(`${apiBase}/spots?status=${spotsFilter}`);
       if (r.ok) setSpots(await r.json());
     } catch {}
   }, [spotsFilter, demoMode]);
@@ -153,7 +151,7 @@ export default function AdminPanel({ pilotId, isSuperAdmin, t, demoMode, onClose
   const loadPilots = useCallback(async () => {
     if (demoMode) return;
     try {
-      const r = await fetch(`${API}/pilots/all?pilot_id=${pilotId}`);
+      const r = await fetch(`${apiBase}/pilots/all?pilot_id=${pilotId}`);
       if (r.ok) setPilots(await r.json());
     } catch {}
   }, [pilotId, demoMode]);
@@ -161,7 +159,7 @@ export default function AdminPanel({ pilotId, isSuperAdmin, t, demoMode, onClose
   const loadAdmins = useCallback(async () => {
     if (demoMode) return;
     try {
-      const r = await fetch(`${API}/admins?pilot_id=${pilotId}`);
+      const r = await fetch(`${apiBase}/admins?pilot_id=${pilotId}`);
       if (r.ok) setAdmins(await r.json());
     } catch {}
   }, [pilotId, demoMode]);
@@ -176,29 +174,29 @@ export default function AdminPanel({ pilotId, isSuperAdmin, t, demoMode, onClose
 
   // --- Spot actions ---
   const approveSpot = async (id) => {
-    await fetch(`${API}/spots/${id}/approve?pilot_id=${pilotId}`, { method: 'POST' });
+    await fetch(`${apiBase}/spots/${id}/approve?pilot_id=${pilotId}`, { method: 'POST' });
     loadSpots(); flash('Spot approved');
   };
   const rejectSpot = async (id) => {
-    await fetch(`${API}/spots/${id}/reject?pilot_id=${pilotId}`, { method: 'POST' });
+    await fetch(`${apiBase}/spots/${id}/reject?pilot_id=${pilotId}`, { method: 'POST' });
     loadSpots(); flash('Spot rejected');
   };
   const deleteSpot = async (id) => {
-    await fetch(`${API}/spots/${id}?pilot_id=${pilotId}`, { method: 'DELETE' });
+    await fetch(`${apiBase}/spots/${id}?pilot_id=${pilotId}`, { method: 'DELETE' });
     loadSpots(); flash('Spot deleted');
   };
 
   // --- Pilot actions ---
   const deletePilot = async (id) => {
-    await fetch(`${API}/pilots/${id}?pilot_id=${pilotId}`, { method: 'DELETE' });
+    await fetch(`${apiBase}/pilots/${id}?pilot_id=${pilotId}`, { method: 'DELETE' });
     loadPilots(); flash('Pilot deleted');
   };
   const grantAdmin = async (username) => {
-    await fetch(`${API}/admins/grant?pilot_id=${pilotId}&target_username=${encodeURIComponent(username)}`, { method: 'POST' });
+    await fetch(`${apiBase}/admins/grant?pilot_id=${pilotId}&target_username=${encodeURIComponent(username)}`, { method: 'POST' });
     loadPilots(); loadAdmins(); flash(`Admin granted to ${username}`);
   };
   const revokeAdmin = async (username) => {
-    await fetch(`${API}/admins/revoke?pilot_id=${pilotId}&target_username=${encodeURIComponent(username)}`, { method: 'POST' });
+    await fetch(`${apiBase}/admins/revoke?pilot_id=${pilotId}&target_username=${encodeURIComponent(username)}`, { method: 'POST' });
     loadPilots(); loadAdmins(); flash(`Admin revoked from ${username}`);
   };
 
