@@ -414,13 +414,17 @@ function MapController({ center, zoom }) {
 function MapEvents({ onMapClick }) {
   const map = useMap();
   const cbRef = React.useRef(onMapClick);
-  cbRef.current = onMapClick; // синхронно, без useEffect — всегда актуально
+  cbRef.current = onMapClick;
 
   React.useEffect(() => {
-    const handler = (e) => cbRef.current(e.latlng);
+    console.log('[v0] MapEvents mounted, map=', !!map);
+    const handler = (e) => {
+      console.log('[v0] map native click', e.latlng, 'pilotId in cb:', cbRef.current);
+      cbRef.current(e.latlng);
+    };
     map.on('click', handler);
     return () => { map.off('click', handler); };
-  }, [map]); // только map — стабильная ссылка, регистрируем один раз
+  }, [map]);
 
   return null;
 }
@@ -1185,6 +1189,7 @@ export default function App() {
           <MapController center={mapCenter} zoom={mapZoom} />
           <MapEvents
             onMapClick={(latlng) => {
+              console.log('[v0] onMapClick called, pilotId=', pilotId);
               if (!pilotId) return;
               setModalCoords(latlng);
               setMapClickMenu({ lat: latlng.lat, lng: latlng.lng });
