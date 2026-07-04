@@ -456,6 +456,39 @@ async def delete_spot(spot_id: str, pilot_id: int):
 
 
 # ---------------------------------------------------------------------------
+# Pilot profile (avatar, bio)
+# ---------------------------------------------------------------------------
+class ProfileUpdate(BaseModel):
+    avatar_url: Optional[str] = None
+    bio: Optional[str] = Field(default=None, max_length=300)
+
+
+@app.get("/api/pilots/{pilot_id}/profile")
+async def get_pilot_profile(pilot_id: int):
+    user = await app.mongodb.users.find_one({"_id": pilot_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="Пилот не найден")
+    return {
+        "id": user["_id"],
+        "username": user["username"],
+        "avatar_url": user.get("avatar_url", ""),
+        "bio": user.get("bio", ""),
+        "created_at": user.get("created_at", ""),
+    }
+
+
+@app.patch("/api/pilots/{pilot_id}/profile")
+async def update_pilot_profile(pilot_id: int, update: ProfileUpdate):
+    user = await app.mongodb.users.find_one({"_id": pilot_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="Пилот не найден")
+    changes = {k: v for k, v in update.model_dump().items() if v is not None}
+    if changes:
+        await app.mongodb.users.update_one({"_id": pilot_id}, {"$set": changes})
+    return {"status": "ok"}
+
+
+# ---------------------------------------------------------------------------
 # Pilots list + search
 # ---------------------------------------------------------------------------
 @app.get("/api/pilots/all")
@@ -473,6 +506,7 @@ async def get_all_pilots(pilot_id: int):
             "id": d["_id"], "username": d["username"],
             "is_admin": d["username"] in admin_usernames,
             "markers": m_count, "drones": d_count,
+            "avatar_url": d.get("avatar_url", ""),
             "created_at": d.get("created_at", "").isoformat() if d.get("created_at") else "",
         })
     return result

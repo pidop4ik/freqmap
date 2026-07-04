@@ -1,6 +1,6 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Camera, User } from 'lucide-react';
-import { getAvatar, setAvatar } from './avatarStorage.js';
+import { getAvatar, setAvatar, fetchAvatar } from './avatarStorage.js';
 
 /**
  * AvatarPicker — circular editable avatar.
@@ -13,6 +13,13 @@ import { getAvatar, setAvatar } from './avatarStorage.js';
 export default function AvatarPicker({ pilotId, size = 80, editable = true }) {
   const [src, setSrc] = useState(() => getAvatar(pilotId));
   const [hover, setHover] = useState(false);
+
+  // При монтировании подгружаем аватар с бэкенда (если нет в кэше)
+  useEffect(() => {
+    if (pilotId == null) return;
+    if (getAvatar(pilotId)) return; // уже есть в кэше
+    fetchAvatar(pilotId).then((url) => { if (url) setSrc(url); });
+  }, [pilotId]);
   const inputRef = useRef(null);
 
   function handleFile(e) {
@@ -45,7 +52,7 @@ export default function AvatarPicker({ pilotId, size = 80, editable = true }) {
         ctx.drawImage(img, 0, 0, w, h);
 
         const compressed = canvas.toDataURL('image/jpeg', 0.82);
-        setAvatar(pilotId, compressed);
+        setAvatar(pilotId, compressed); // async — не ждём, UI обновляем сразу
         setSrc(compressed);
       };
       img.src = dataUrl;
