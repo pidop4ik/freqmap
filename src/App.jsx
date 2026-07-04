@@ -731,7 +731,7 @@ export default function App() {
           setPilotId(found.id);
           setUsername(found.username);
         } else if (pilots.length === 0) {
-          // Первый запуск без бэкенда — создаём пилота автоматически
+          // Первый з��пуск без бэкенда — создаём пилота автоматически
           const newPilot = { id: 1, username: authForm.username, password: authForm.password };
           lsSet(LS_PILOTS, [newPilot]);
           localStorage.setItem('freqmap_pilot_id', '1');
@@ -1031,28 +1031,6 @@ export default function App() {
               <AlertTriangle size={14} />
               <span>{t.backend_offline}</span>
             </div>
-          )}
-
-          {/* Быстрый оффлайн вход — показываем кнопку если бэкенд не отвечает */}
-          {demoMode && (
-            <button
-              className="btn-ghost offline-guest-btn"
-              onClick={() => {
-                const name = authForm.username.trim() || 'Pilot';
-                const pilots = lsGet(LS_PILOTS, []);
-                let pilot = pilots.find((p) => p.username === name);
-                if (!pilot) {
-                  pilot = { id: lsNextId(pilots), username: name, password: '' };
-                  lsSet(LS_PILOTS, [...pilots, pilot]);
-                }
-                localStorage.setItem('freqmap_pilot_id', String(pilot.id));
-                localStorage.setItem('freqmap_user', pilot.username);
-                setPilotId(pilot.id);
-                setUsername(pilot.username);
-              }}
-            >
-              {lang === 'ru' ? 'Продолжить без аккаунта' : lang === 'pl' ? 'Kontynuuj bez konta' : 'Continue without account'}
-            </button>
           )}
 
           <div className="tab-toggle">
