@@ -14,6 +14,7 @@ import ChatSheet from './components/ChatSheet.jsx';
 import AdminPanel from './components/AdminPanel.jsx';
 import ProposeSpotSheet from './components/ProposeSpotSheet.jsx';
 import { findConflictingMarkers } from './data/frequencies.js';
+import AvatarPicker from './components/AvatarPicker.jsx';
 
 // ---------------------------------------------------------------------------
 // Custom SVG marker icons
@@ -105,7 +106,9 @@ const ConflictIcon = L.icon({
   popupAnchor: [1, -34],
 });
 
-const API_BASE = 'http://localhost:8000/api';
+// Читаем из env (VITE_API_BASE=https://your-vps.com/api) или fallback на /api
+// При dev без env — vite proxy перенаправляет /api → http://localhost:8000/api
+const API_BASE = import.meta.env.VITE_API_BASE ?? '/api';
 
 // ---------------------------------------------------------------------------
 // i18n
@@ -631,6 +634,18 @@ export default function App() {
     }
   }, [demoMode, pilotId, loadDemoData]); // FIX: корректные зависимости
 
+  // Проверяем доступность бэкенда при старте — чтобы показать кнопку оффлайн-входа
+  useEffect(() => {
+    if (demoMode) return; // уже знаем
+    const ctrl = new AbortController();
+    fetch(`${API_BASE}/health`, { signal: ctrl.signal })
+      .then((r) => { if (!r.ok) throw new Error(); })
+      .catch((e) => {
+        if (e.name !== 'AbortError') setDemoMode(true);
+      });
+    return () => ctrl.abort();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (pilotId != null) {
       loadData(pilotId);
@@ -1018,6 +1033,28 @@ export default function App() {
             </div>
           )}
 
+          {/* Быстрый оффлайн вход — показываем кнопку если бэкенд не отвечает */}
+          {demoMode && (
+            <button
+              className="btn-ghost offline-guest-btn"
+              onClick={() => {
+                const name = authForm.username.trim() || 'Pilot';
+                const pilots = lsGet(LS_PILOTS, []);
+                let pilot = pilots.find((p) => p.username === name);
+                if (!pilot) {
+                  pilot = { id: lsNextId(pilots), username: name, password: '' };
+                  lsSet(LS_PILOTS, [...pilots, pilot]);
+                }
+                localStorage.setItem('freqmap_pilot_id', String(pilot.id));
+                localStorage.setItem('freqmap_user', pilot.username);
+                setPilotId(pilot.id);
+                setUsername(pilot.username);
+              }}
+            >
+              {lang === 'ru' ? 'Продолжить без аккаунта' : lang === 'pl' ? 'Kontynuuj bez konta' : 'Continue without account'}
+            </button>
+          )}
+
           <div className="tab-toggle">
             <button
               className={`tab-btn ${authMode === 'login' ? 'active' : ''}`}
@@ -1225,10 +1262,12 @@ export default function App() {
       {/* PROFILE TAB */}
       {activeView === 'profile' && (
         <div className="fullscreen-tab">
-          <div className="tab-header">
-            <div>
+          <div className="profile-hero">
+            <AvatarPicker pilotId={pilotId} size={84} editable={true} />
+            <div className="profile-hero__info">
               <h2 className="tab-title">{username}</h2>
               <p className="tab-subtitle">Pilot #{pilotId}</p>
+              {demoMode && <span className="demo-tag" style={{ marginTop: 4 }}>offline</span>}
             </div>
           </div>
 

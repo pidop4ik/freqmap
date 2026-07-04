@@ -4,6 +4,7 @@ import {
   Trash2, Pencil, Check, AlertTriangle, Info, Cpu, Save,
 } from 'lucide-react';
 import FrequencySelector from './FrequencySelector.jsx';
+import AvatarPicker from './AvatarPicker.jsx';
 
 // ---------------------------------------------------------------------------
 // Per-language strings used inside this component
@@ -257,9 +258,11 @@ export default function PilotProfileSheet({
         {/* ------------------------------------------------------------------ */}
         <div className="profile-sheet__header">
           <div className="profile-sheet__pilot-info">
-            <div className="profile-sheet__avatar" aria-hidden="true">
-              {pilot?.username?.[0]?.toUpperCase() ?? '?'}
-            </div>
+            <AvatarPicker
+              pilotId={pilot?.id}
+              size={52}
+              editable={isOwner}
+            />
             <div>
               <h2 className="profile-sheet__username">{pilot?.username}</h2>
               <p className="profile-sheet__id">{s.pilot} #{pilot?.id}</p>

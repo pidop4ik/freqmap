@@ -1,22 +1,14 @@
 import React, { useRef, useState } from 'react';
 import { Camera, User } from 'lucide-react';
-
-const LS_KEY = (pilotId) => `freqmap_avatar_${pilotId}`;
-
-/** Read the stored avatar Data-URL for a given pilot (or null). */
-export function getAvatar(pilotId) {
-  if (pilotId == null) return null;
-  try { return localStorage.getItem(LS_KEY(pilotId)) || null; }
-  catch { return null; }
-}
+import { getAvatar, setAvatar } from './avatarStorage.js';
 
 /**
- * AvatarPicker — editable avatar for the owner.
+ * AvatarPicker — circular editable avatar.
  *
  * Props:
  *   pilotId   number
  *   size      number  (px, default 80)
- *   editable  boolean (default true)
+ *   editable  boolean (show camera button, default true)
  */
 export default function AvatarPicker({ pilotId, size = 80, editable = true }) {
   const [src, setSrc] = useState(() => getAvatar(pilotId));
@@ -32,8 +24,9 @@ export default function AvatarPicker({ pilotId, size = 80, editable = true }) {
     reader.onload = (ev) => {
       const dataUrl = ev.target.result;
 
-      // Downscale to 256×256 to keep localStorage usage low
+      // Downscale to max 256px to keep localStorage usage low
       const img = new Image();
+      img.crossOrigin = 'anonymous';
       img.onload = () => {
         const MAX = 256;
         const scale = Math.min(1, MAX / Math.max(img.width, img.height));
@@ -52,17 +45,17 @@ export default function AvatarPicker({ pilotId, size = 80, editable = true }) {
         ctx.drawImage(img, 0, 0, w, h);
 
         const compressed = canvas.toDataURL('image/jpeg', 0.82);
-        try { localStorage.setItem(LS_KEY(pilotId), compressed); } catch { /* quota */ }
+        setAvatar(pilotId, compressed);
         setSrc(compressed);
       };
       img.src = dataUrl;
     };
     reader.readAsDataURL(file);
-    // reset so same file can be re-selected
+    // Reset so same file can be re-selected
     e.target.value = '';
   }
 
-  const btnSize = Math.round(size * 0.35);
+  const btnSize = Math.round(size * 0.34);
   const iconSize = Math.round(btnSize * 0.55);
 
   return (
@@ -72,7 +65,6 @@ export default function AvatarPicker({ pilotId, size = 80, editable = true }) {
       onMouseEnter={() => editable && setHover(true)}
       onMouseLeave={() => setHover(false)}
     >
-      {/* Avatar image or placeholder */}
       {src ? (
         <img
           src={src}
@@ -87,7 +79,6 @@ export default function AvatarPicker({ pilotId, size = 80, editable = true }) {
         </div>
       )}
 
-      {/* Edit overlay */}
       {editable && (
         <>
           <div

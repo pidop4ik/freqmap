@@ -896,6 +896,116 @@ select.field-input {
 }
 
 /* ==========================================================================
+   Avatar Picker
+   ========================================================================== */
+.avatar-picker {
+  position: relative;
+  flex-shrink: 0;
+  border-radius: 50%;
+  overflow: hidden;
+  cursor: pointer;
+  background: var(--surface-2);
+  border: 2px solid var(--border);
+  transition: border-color 0.18s;
+}
+.avatar-picker:hover {
+  border-color: var(--accent);
+}
+.avatar-picker__img {
+  display: block;
+  object-fit: cover;
+  border-radius: 50%;
+}
+.avatar-picker__placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: var(--text-muted);
+}
+.avatar-picker__overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  opacity: 0;
+  transition: opacity 0.18s;
+  cursor: pointer;
+}
+.avatar-picker__overlay--visible {
+  opacity: 1;
+}
+/* Small camera badge bottom-right */
+.avatar-picker__btn {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--bg);
+  border: 2px solid var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.12s;
+  padding: 0;
+}
+.avatar-picker__btn:hover {
+  background: var(--accent-dim, var(--accent));
+  transform: scale(1.1);
+}
+
+/* ==========================================================================
+   Profile hero (avatar + name row at top of Profile tab)
+   ========================================================================== */
+.profile-hero {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 20px 8px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+.profile-hero__info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.profile-hero__info .tab-title {
+  margin: 0;
+  line-height: 1.2;
+}
+.profile-hero__info .tab-subtitle {
+  margin: 0;
+}
+
+/* ==========================================================================
+   Offline / demo guest button on auth screen
+   ========================================================================== */
+.offline-guest-btn {
+  width: 100%;
+  margin-top: -4px;
+  margin-bottom: 8px;
+  border: 1px dashed var(--border);
+  color: var(--text-muted);
+  font-size: 13px;
+  padding: 10px;
+  border-radius: var(--radius-md, 10px);
+  background: transparent;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.offline-guest-btn:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+/* ==========================================================================
    Leaflet overrides
    ========================================================================== */
 .leaflet-container {
