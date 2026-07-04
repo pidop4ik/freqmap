@@ -646,36 +646,12 @@ export default function App() {
         }
       }
     } catch (e) {
-      // Только сетевая ошибка (не HTTP) = бэкенд недоступен
-      if (e instanceof TypeError) {
-        setDemoMode(true);
-        demoModeRef.current = true;
-        loadDemoData(id);
-      }
+      console.log('[v0] loadData error:', e.message);
     }
   }, [loadDemoData]); // стабильная зависимость — только loadDemoData
 
-  // Проверяем доступность бэкенда при старте.
-  // demoMode включается только если бэкенд недоступен И loadData тоже упал.
-  // НЕ включаем demoMode при первом health check — это вызывало ложные срабатывания.
-  useEffect(() => {
-    const ctrl = new AbortController();
-    fetch(`${API_BASE}/health`, { signal: ctrl.signal })
-      .then((r) => {
-        if (!r.ok) console.log('[v0] health check failed:', r.status);
-      })
-      .catch((e) => {
-        if (e.name !== 'AbortError') {
-          console.log('[v0] backend unreachable:', e.message);
-          // Включаем demoMode только если это точно сетевая ошибка
-          if (e instanceof TypeError) {
-            setDemoMode(true);
-            demoModeRef.current = true;
-          }
-        }
-      });
-    return () => ctrl.abort();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // demoMode отключён — бэкенд всегда доступен на production
+  // useEffect для health check убран чтобы не ставить demoMode=true
 
   useEffect(() => {
     if (pilotId != null) {
