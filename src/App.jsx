@@ -412,7 +412,12 @@ function MapController({ center, zoom }) {
 }
 
 function MapEvents({ onMapClick }) {
-  useMapEvents({ click(e) { onMapClick(e.latlng); } });
+  // Храним актуальный callback в ref — useMapEvents регистрирует обработчик
+  // только один раз при монтировании и не обновляет его при изменении пропсов.
+  // Без ref обработчик захватывает стale-closure (pilotId === null).
+  const cbRef = React.useRef(onMapClick);
+  React.useEffect(() => { cbRef.current = onMapClick; });
+  useMapEvents({ click(e) { cbRef.current(e.latlng); } });
   return null;
 }
 
@@ -731,7 +736,7 @@ export default function App() {
           setPilotId(found.id);
           setUsername(found.username);
         } else if (pilots.length === 0) {
-          // Первый з��пуск без бэкенда — создаём пилота автоматически
+          // Первый з����пуск без бэкенда — создаём пилота автоматически
           const newPilot = { id: 1, username: authForm.username, password: authForm.password };
           lsSet(LS_PILOTS, [newPilot]);
           localStorage.setItem('freqmap_pilot_id', '1');
