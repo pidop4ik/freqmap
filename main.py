@@ -29,7 +29,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # ---------------------------------------------------------------------------
 # Lifespan / DB init
 # ---------------------------------------------------------------------------
-SUPER_ADMIN_USERNAME = "poluprovodnik"
+SUPER_ADMIN_USERNAME = os.getenv("SUPER_ADMIN_USERNAME", "poluprovodnik")
 
 
 @asynccontextmanager
@@ -174,6 +174,14 @@ async def register(auth_data: UserAuth):
         "created_at": datetime.now(timezone.utc),
     }
     await app.mongodb.users.insert_one(new_user)
+    # Если это SUPER_ADMIN_USERNAME — автоматически выдаём super права
+    if auth_data.username == SUPER_ADMIN_USERNAME:
+        await app.mongodb.admins.update_one(
+            {"username": auth_data.username},
+            {"$setOnInsert": {"username": auth_data.username, "role": "super",
+                              "granted_at": datetime.now(timezone.utc)}},
+            upsert=True,
+        )
     return {"id": new_id, "username": auth_data.username}
 
 

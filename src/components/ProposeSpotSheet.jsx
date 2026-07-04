@@ -47,7 +47,7 @@ export default function ProposeSpotSheet({ pilotId, coords, onClose, t, demoMode
       });
       if (!res.ok) { const d = await res.json(); setError(d.detail || 'Error'); return; }
       setStep(2);
-    } catch { setError('Backend unavailable'); }
+    } catch (e) { setError(e.message === 'Failed to fetch' ? 'Backend unavailable' : e.message); }
   };
 
   return (

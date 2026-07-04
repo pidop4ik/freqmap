@@ -152,8 +152,13 @@ export default function AdminPanel({ pilotId, isSuperAdmin, t, demoMode, onClose
     if (demoMode) return;
     try {
       const r = await fetch(`${apiBase}/pilots/all?pilot_id=${pilotId}`);
-      if (r.ok) setPilots(await r.json());
-    } catch {}
+      if (r.ok) {
+        setPilots(await r.json());
+      } else {
+        const d = await r.json().catch(() => ({}));
+        console.log('[v0] pilots/all error', r.status, d.detail);
+      }
+    } catch (e) { console.log('[v0] pilots/all network error', e.message); }
   }, [pilotId, demoMode]);
 
   const loadAdmins = useCallback(async () => {
