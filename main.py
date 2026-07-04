@@ -74,12 +74,7 @@ async def is_super_admin(db, pilot_id: int) -> bool:
 
 app = FastAPI(title="FreqMap Elite API", version="2.0.0", lifespan=lifespan)
 
-
-@app.get("/api/health")
-async def health():
-    return {"status": "ok"}
-
-
+# CORS должен быть добавлен ДО любых роутов
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -87,6 +82,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.get("/api/health")
+async def health():
+    return {"status": "ok"}
 
 
 # ---------------------------------------------------------------------------
@@ -99,7 +99,7 @@ async def get_next_user_id(db) -> int:
         upsert=True,
         return_document=ReturnDocument.AFTER,
     )
-    return doc["seq"] - 1  # начинаем с 0
+    return doc["seq"]  # начинаем с 1 (0 — falsy в JS, вызывает баги)
 
 
 # ---------------------------------------------------------------------------

@@ -500,7 +500,8 @@ export default function App() {
   // FIX: parseInt(null) === NaN — используем Number() с проверкой
   const storedRawId = typeof window !== 'undefined' ? localStorage.getItem('freqmap_pilot_id') : null;
   const storedPilotId = storedRawId ? Number(storedRawId) : null;
-  const [pilotId, setPilotId] = useState(Number.isFinite(storedPilotId) ? storedPilotId : null);
+  // ID=0 невалиден (первый юзер в старой БД, falsy в JS) — трактуем как null
+  const [pilotId, setPilotId] = useState((Number.isFinite(storedPilotId) && storedPilotId > 0) ? storedPilotId : null);
   const [username, setUsername] = useState(
     typeof window !== 'undefined' ? (localStorage.getItem('freqmap_user') || '') : ''
   );
@@ -1935,7 +1936,7 @@ function AdminPilotList({ t, markers, setMarkers, drones, setDrones }) {
 }
 
 // ---------------------------------------------------------------------------
-// ProfileDroneList — встроенный список дронов для вкладки Profile
+// ProfileDroneList — встро��нный список дронов для вкладки Profile
 // Повторяет логику PilotProfileSheet, но б��з модального overlay
 // ---------------------------------------------------------------------------
 function ProfileDroneList({ drones, isOwner, conflictIds, lang, onDeleteDrone, onUpdateDrone }) {
