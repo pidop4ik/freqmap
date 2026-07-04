@@ -131,7 +131,7 @@ const i18n = {
     step_specs: 'Шаг 2 — Характеристики (по желанию)',
     skip_specs: 'Пропустить',
     next: 'Далее',
-    save_drone: 'Сохранить дрон',
+    save_drone: 'Со��ранить дрон',
     view_profile: 'Профиль пилота',
     language: 'Язык',
     drone: 'Дрон',
@@ -613,9 +613,17 @@ export default function App() {
   // Data loading
   // ---------------------------------------------------------------------------
   // FIX: useCallback чтобы не пересоздавать функцию при каждом рендере
+  // Refs для стабильного доступа к актуальным значениям внутри polling-интервала
+  // и loadData без нестабильных зависимостей useCallback.
+  const demoModeRef = React.useRef(demoMode);
+  const pilotIdRef  = React.useRef(pilotId);
+  React.useEffect(() => { demoModeRef.current = demoMode; }, [demoMode]);
+  React.useEffect(() => { pilotIdRef.current  = pilotId;  }, [pilotId]);
+
   const loadData = useCallback(async (currentPilotId) => {
-    if (demoMode) {
-      loadDemoData(currentPilotId ?? pilotId);
+    const id = currentPilotId ?? pilotIdRef.current;
+    if (demoModeRef.current) {
+      loadDemoData(id);
       return;
     }
     try {
@@ -623,8 +631,8 @@ export default function App() {
       if (resM.ok) {
         setMarkers(await resM.json());
       }
-      if (currentPilotId != null) {
-        const resD = await fetch(`${API_BASE}/pilots/${currentPilotId}/drones`);
+      if (id != null) {
+        const resD = await fetch(`${API_BASE}/pilots/${id}/drones`);
         if (resD.ok) {
           const droneList = await resD.json();
           setDrones(droneList);
@@ -636,18 +644,21 @@ export default function App() {
     } catch {
       // Бэкенд недоступен — переключаемся в demo mode
       setDemoMode(true);
-      loadDemoData(currentPilotId ?? pilotId);
+      demoModeRef.current = true;
+      loadDemoData(id);
     }
-  }, [demoMode, pilotId, loadDemoData]); // FIX: корректные зависимости
+  }, [loadDemoData]); // стабильная зависимость — только loadDemoData
 
-  // Проверяем доступность бэкенда при старте — чтобы показать кнопку оффлайн-входа
+  // Проверяем доступность бэкенда при старте
   useEffect(() => {
-    if (demoMode) return; // уже знаем
     const ctrl = new AbortController();
     fetch(`${API_BASE}/health`, { signal: ctrl.signal })
       .then((r) => { if (!r.ok) throw new Error(); })
       .catch((e) => {
-        if (e.name !== 'AbortError') setDemoMode(true);
+        if (e.name !== 'AbortError') {
+          setDemoMode(true);
+          demoModeRef.current = true;
+        }
       });
     return () => ctrl.abort();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -655,15 +666,15 @@ export default function App() {
   useEffect(() => {
     if (pilotId != null) {
       loadData(pilotId);
-      // Check server-side admin status
       fetch(`${API_BASE}/admins/check/${pilotId}`)
         .then((r) => r.ok ? r.json() : null)
         .then((d) => { if (d) { setServerAdmin(d.is_admin); setServerSuper(d.is_super); } })
         .catch(() => {});
     }
-    const interval = setInterval(() => loadData(pilotId), 15000);
+    // Polling: передаём pilotId явно через ref чтобы не захватывать stale closure
+    const interval = setInterval(() => loadData(pilotIdRef.current), 15000);
     return () => clearInterval(interval);
-  }, [pilotId]);
+  }, [pilotId, loadData]);
 
   // ---------------------------------------------------------------------------
   // Auth
@@ -782,7 +793,7 @@ export default function App() {
       const pilotDrones = res.ok ? await res.json() : [];
       setProfileSheet({ pilot, drones: pilotDrones });
     } catch {
-      // При ошибке — просто открываем с пустым ангаром
+      // При ошибке — просто открываем с пуст��м ангаром
       setProfileSheet({ pilot, drones: [] });
     }
   }, [pilotId, drones, demoMode]);
