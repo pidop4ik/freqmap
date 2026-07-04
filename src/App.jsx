@@ -644,19 +644,21 @@ export default function App() {
           }
         }
       }
-    } catch {
-      // Бэкенд недоступен — переключаемся в demo mode
-      setDemoMode(true);
-      demoModeRef.current = true;
-      loadDemoData(id);
+    } catch (e) {
+      // Только сетевая ошибка (не HTTP) = бэкенд недоступен
+      if (e instanceof TypeError) {
+        setDemoMode(true);
+        demoModeRef.current = true;
+        loadDemoData(id);
+      }
     }
   }, [loadDemoData]); // стабильная зависимость — только loadDemoData
 
-  // Проверяем доступность бэкенда при старте
+  // Проверяем доступность бэкенда при старте.
+  // Считаем demoMode только при сетевой ошибке (fetch throws) — не при HTTP ошибках.
   useEffect(() => {
     const ctrl = new AbortController();
     fetch(`${API_BASE}/health`, { signal: ctrl.signal })
-      .then((r) => { if (!r.ok) throw new Error(); })
       .catch((e) => {
         if (e.name !== 'AbortError') {
           setDemoMode(true);
@@ -1806,7 +1808,7 @@ export default function App() {
           onUnreadChange={(count) => {
             if (typeof count === 'number') setUnreadCount(count);
             else {
-              fetch(`http://localhost:8000/api/messages/${pilotId}/unread/count`)
+              fetch(`${API_BASE}/messages/${pilotId}/unread/count`)
                 .then((r) => r.ok ? r.json() : { count: 0 })
                 .then(({ count: c }) => setUnreadCount(c))
                 .catch(() => {});
@@ -1934,7 +1936,7 @@ function AdminPilotList({ t, markers, setMarkers, drones, setDrones }) {
 
 // ---------------------------------------------------------------------------
 // ProfileDroneList — встроенный список дронов для вкладки Profile
-// Повторяет логику PilotProfileSheet, но без модального overlay
+// Повторяет логику PilotProfileSheet, но б��з модального overlay
 // ---------------------------------------------------------------------------
 function ProfileDroneList({ drones, isOwner, conflictIds, lang, onDeleteDrone, onUpdateDrone }) {
   // lazy import строк прямо из SHEET_I18N через встроенный объект

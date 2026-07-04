@@ -74,6 +74,12 @@ async def is_super_admin(db, pilot_id: int) -> bool:
 
 app = FastAPI(title="FreqMap Elite API", version="2.0.0", lifespan=lifespan)
 
+
+@app.get("/api/health")
+async def health():
+    return {"status": "ok"}
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
