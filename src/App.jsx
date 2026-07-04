@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Map as MapIcon, User, Settings, Crosshair, Globe, Trash2, Plus, AlertTriangle, Radio, ExternalLink, Maximize2, Zap, Weight, Pencil, ChevronDown, ChevronUp, Cpu, Info, Save, ShieldCheck, UserX, Heart, MessageCircle, MapPin } from 'lucide-react';
@@ -14,6 +14,7 @@ import ChatSheet from './components/ChatSheet.jsx';
 import AdminPanel from './components/AdminPanel.jsx';
 import ProposeSpotSheet from './components/ProposeSpotSheet.jsx';
 import { findConflictingMarkers } from './data/frequencies.js';
+import AvatarPicker from './components/AvatarPicker.jsx';
 
 // ---------------------------------------------------------------------------
 // Custom SVG marker icons
@@ -105,7 +106,9 @@ const ConflictIcon = L.icon({
   popupAnchor: [1, -34],
 });
 
-const API_BASE = 'http://localhost:8000/api';
+// Читаем из env (VITE_API_BASE=https://your-vps.com/api) или fallback на /api
+// При dev без env — vite proxy перенаправляет /api → http://localhost:8000/api
+const API_BASE = import.meta.env.VITE_API_BASE ?? '/api';
 
 // ---------------------------------------------------------------------------
 // i18n
@@ -128,7 +131,7 @@ const i18n = {
     step_specs: 'Шаг 2 — Характеристики (по желанию)',
     skip_specs: 'Пропустить',
     next: 'Далее',
-    save_drone: 'Сохранить дрон',
+    save_drone: 'Со����ранить дрон',
     view_profile: 'Профиль пилота',
     language: 'Язык',
     drone: 'Дрон',
@@ -399,7 +402,7 @@ function lsNextId(arr) {
 // Map helpers
 // ---------------------------------------------------------------------------
 function MapController({ center, zoom }) {
-  const map = useMapEvents({});
+  const map = useMap();
   useEffect(() => {
     if (center && Array.isArray(center) && center[0] != null && center[1] != null) {
       map.setView(center, zoom ?? map.getZoom(), { animate: true });
@@ -409,7 +412,16 @@ function MapController({ center, zoom }) {
 }
 
 function MapEvents({ onMapClick }) {
-  useMapEvents({ click(e) { onMapClick(e.latlng); } });
+  const map = useMap();
+  const cbRef = React.useRef(onMapClick);
+  cbRef.current = onMapClick;
+
+  React.useEffect(() => {
+    const handler = (e) => cbRef.current(e.latlng);
+    map.on('click', handler);
+    return () => { map.off('click', handler); };
+  }, [map]);
+
   return null;
 }
 
@@ -604,9 +616,17 @@ export default function App() {
   // Data loading
   // ---------------------------------------------------------------------------
   // FIX: useCallback чтобы не пересоздавать функцию при каждом рендере
+  // Refs для стабильного доступа к актуальным значениям внутри polling-интервала
+  // и loadData без нестабильных зависимостей useCallback.
+  const demoModeRef = React.useRef(demoMode);
+  const pilotIdRef  = React.useRef(pilotId);
+  React.useEffect(() => { demoModeRef.current = demoMode; }, [demoMode]);
+  React.useEffect(() => { pilotIdRef.current  = pilotId;  }, [pilotId]);
+
   const loadData = useCallback(async (currentPilotId) => {
-    if (demoMode) {
-      loadDemoData(currentPilotId ?? pilotId);
+    const id = currentPilotId ?? pilotIdRef.current;
+    if (demoModeRef.current) {
+      loadDemoData(id);
       return;
     }
     try {
@@ -614,8 +634,8 @@ export default function App() {
       if (resM.ok) {
         setMarkers(await resM.json());
       }
-      if (currentPilotId != null) {
-        const resD = await fetch(`${API_BASE}/pilots/${currentPilotId}/drones`);
+      if (id != null) {
+        const resD = await fetch(`${API_BASE}/pilots/${id}/drones`);
         if (resD.ok) {
           const droneList = await resD.json();
           setDrones(droneList);
@@ -627,22 +647,37 @@ export default function App() {
     } catch {
       // Бэкенд недоступен — переключаемся в demo mode
       setDemoMode(true);
-      loadDemoData(currentPilotId ?? pilotId);
+      demoModeRef.current = true;
+      loadDemoData(id);
     }
-  }, [demoMode, pilotId, loadDemoData]); // FIX: корректные зависимости
+  }, [loadDemoData]); // стабильная зависимость — только loadDemoData
+
+  // Проверяем доступность бэкенда при старте
+  useEffect(() => {
+    const ctrl = new AbortController();
+    fetch(`${API_BASE}/health`, { signal: ctrl.signal })
+      .then((r) => { if (!r.ok) throw new Error(); })
+      .catch((e) => {
+        if (e.name !== 'AbortError') {
+          setDemoMode(true);
+          demoModeRef.current = true;
+        }
+      });
+    return () => ctrl.abort();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (pilotId != null) {
       loadData(pilotId);
-      // Check server-side admin status
       fetch(`${API_BASE}/admins/check/${pilotId}`)
         .then((r) => r.ok ? r.json() : null)
         .then((d) => { if (d) { setServerAdmin(d.is_admin); setServerSuper(d.is_super); } })
         .catch(() => {});
     }
-    const interval = setInterval(() => loadData(pilotId), 15000);
+    // Polling: передаём pilotId явно через ref чтобы не захватывать stale closure
+    const interval = setInterval(() => loadData(pilotIdRef.current), 15000);
     return () => clearInterval(interval);
-  }, [pilotId]);
+  }, [pilotId, loadData]);
 
   // ---------------------------------------------------------------------------
   // Auth
@@ -716,7 +751,7 @@ export default function App() {
           setPilotId(found.id);
           setUsername(found.username);
         } else if (pilots.length === 0) {
-          // Первый запуск без бэкенда — создаём пилота автоматически
+          // Первый з����пуск без бэкенда — создаём пилота автоматически
           const newPilot = { id: 1, username: authForm.username, password: authForm.password };
           lsSet(LS_PILOTS, [newPilot]);
           localStorage.setItem('freqmap_pilot_id', '1');
@@ -761,7 +796,7 @@ export default function App() {
       const pilotDrones = res.ok ? await res.json() : [];
       setProfileSheet({ pilot, drones: pilotDrones });
     } catch {
-      // При ошибке — просто открываем с пустым ангаром
+      // При ошибке — просто открываем с пуст��м ангаром
       setProfileSheet({ pilot, drones: [] });
     }
   }, [pilotId, drones, demoMode]);
@@ -1150,7 +1185,6 @@ export default function App() {
           <MapController center={mapCenter} zoom={mapZoom} />
           <MapEvents
             onMapClick={(latlng) => {
-              if (!pilotId) return;
               setModalCoords(latlng);
               setMapClickMenu({ lat: latlng.lat, lng: latlng.lng });
             }}
@@ -1225,10 +1259,12 @@ export default function App() {
       {/* PROFILE TAB */}
       {activeView === 'profile' && (
         <div className="fullscreen-tab">
-          <div className="tab-header">
-            <div>
+          <div className="profile-hero">
+            <AvatarPicker pilotId={pilotId} size={84} editable={true} />
+            <div className="profile-hero__info">
               <h2 className="tab-title">{username}</h2>
               <p className="tab-subtitle">Pilot #{pilotId}</p>
+              {demoMode && <span className="demo-tag" style={{ marginTop: 4 }}>offline</span>}
             </div>
           </div>
 
