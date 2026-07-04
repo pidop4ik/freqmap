@@ -45,9 +45,16 @@ export default function ProposeSpotSheet({ pilotId, coords, onClose, t, demoMode
           tags,
         }),
       });
-      if (!res.ok) { const d = await res.json(); setError(d.detail || 'Error'); return; }
+      if (!res.ok) { 
+        const d = await res.json().catch(() => ({}));
+        setError(d.detail || `Error ${res.status}`); 
+        return; 
+      }
       setStep(2);
-    } catch (e) { setError(e.message === 'Failed to fetch' ? 'Backend unavailable' : e.message); }
+    } catch (e) { 
+      console.log('[v0] spot submit error:', e);
+      setError(e.message === 'Failed to fetch' ? 'Backend unavailable' : e.message); 
+    }
   };
 
   return (
