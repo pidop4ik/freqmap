@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMapEvent } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMapEvent, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Map as MapIcon, User, Settings, Crosshair, Globe, Trash2, Plus, AlertTriangle, Radio, ExternalLink, Maximize2, Zap, Weight, Pencil, ChevronDown, ChevronUp, Cpu, Info, Save, ShieldCheck, UserX, Heart, MessageCircle, MapPin } from 'lucide-react';
@@ -131,7 +131,7 @@ const i18n = {
     step_specs: 'Шаг 2 — Характеристики (по желанию)',
     skip_specs: 'Пропустить',
     next: 'Далее',
-    save_drone: 'Со��ранить дрон',
+    save_drone: 'Со����ранить дрон',
     view_profile: 'Профиль пилота',
     language: 'Язык',
     drone: 'Дрон',
@@ -402,7 +402,7 @@ function lsNextId(arr) {
 // Map helpers
 // ---------------------------------------------------------------------------
 function MapController({ center, zoom }) {
-  const map = useMapEvents({});
+  const map = useMap();
   useEffect(() => {
     if (center && Array.isArray(center) && center[0] != null && center[1] != null) {
       map.setView(center, zoom ?? map.getZoom(), { animate: true });
