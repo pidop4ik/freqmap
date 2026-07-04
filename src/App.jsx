@@ -656,14 +656,22 @@ export default function App() {
   }, [loadDemoData]); // стабильная зависимость — только loadDemoData
 
   // Проверяем доступность бэкенда при старте.
-  // Считаем demoMode только при сетевой ошибке (fetch throws) — не при HTTP ошибках.
+  // demoMode включается только если бэкенд недоступен И loadData тоже упал.
+  // НЕ включаем demoMode при первом health check — это вызывало ложные срабатывания.
   useEffect(() => {
     const ctrl = new AbortController();
     fetch(`${API_BASE}/health`, { signal: ctrl.signal })
+      .then((r) => {
+        if (!r.ok) console.log('[v0] health check failed:', r.status);
+      })
       .catch((e) => {
         if (e.name !== 'AbortError') {
-          setDemoMode(true);
-          demoModeRef.current = true;
+          console.log('[v0] backend unreachable:', e.message);
+          // Включаем demoMode только если это точно сетевая ошибка
+          if (e instanceof TypeError) {
+            setDemoMode(true);
+            demoModeRef.current = true;
+          }
         }
       });
     return () => ctrl.abort();
