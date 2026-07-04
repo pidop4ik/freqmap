@@ -165,7 +165,18 @@ async def register(auth_data: UserAuth):
     if existing:
         raise HTTPException(status_code=400, detail="Ник уже занят")
 
-    new_id = await get_next_user_id(app.mongodb)
+    is_super = auth_data.username == SUPER_ADMIN_USERNAME
+
+    if is_super:
+        # Super-admin всегда получает id=0
+        new_id = 0
+        # Убеждаемся что id=0 не занят
+        id_conflict = await app.mongodb.users.find_one({"_id": 0})
+        if id_conflict:
+            raise HTTPException(status_code=400, detail="Ник уже занят")
+    else:
+        new_id = await get_next_user_id(app.mongodb)
+
     hashed_pw = pwd_context.hash(auth_data.password)
     new_user = {
         "_id": new_id,
@@ -174,8 +185,8 @@ async def register(auth_data: UserAuth):
         "created_at": datetime.now(timezone.utc),
     }
     await app.mongodb.users.insert_one(new_user)
-    # Если это SUPER_ADMIN_USERNAME — автоматически выдаём super права
-    if auth_data.username == SUPER_ADMIN_USERNAME:
+
+    if is_super:
         await app.mongodb.admins.update_one(
             {"username": auth_data.username},
             {"$setOnInsert": {"username": auth_data.username, "role": "super",

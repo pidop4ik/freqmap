@@ -499,9 +499,9 @@ export default function App() {
 
   // FIX: parseInt(null) === NaN — используем Number() с проверкой
   const storedRawId = typeof window !== 'undefined' ? localStorage.getItem('freqmap_pilot_id') : null;
-  const storedPilotId = storedRawId ? Number(storedRawId) : null;
-  // ID=0 невалиден (первый юзер в старой БД, falsy в JS) — трактуем как null
-  const [pilotId, setPilotId] = useState((Number.isFinite(storedPilotId) && storedPilotId > 0) ? storedPilotId : null);
+  // storedRawId может быть "0" — это валидный super-admin ID, не трактуем как null
+  const storedPilotId = storedRawId !== null && storedRawId !== '' ? Number(storedRawId) : null;
+  const [pilotId, setPilotId] = useState(Number.isFinite(storedPilotId) ? storedPilotId : null);
   const [username, setUsername] = useState(
     typeof window !== 'undefined' ? (localStorage.getItem('freqmap_user') || '') : ''
   );
