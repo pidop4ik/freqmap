@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMapEvent, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Map as MapIcon, User, Settings, Crosshair, Globe, Trash2, Plus, AlertTriangle, Radio, ExternalLink, Maximize2, Zap, Weight, Pencil, ChevronDown, ChevronUp, Cpu, Info, Save, ShieldCheck, UserX, Heart, MessageCircle, MapPin } from 'lucide-react';
@@ -412,13 +412,16 @@ function MapController({ center, zoom }) {
 }
 
 function MapEvents({ onMapClick }) {
-  // useMapEvent принимает стабильные type + handler.
-  // Храним callback в ref чтобы не пересоздавать handler при каждом рендере —
-  // иначе react-leaflet v5 делает map.off(old) + map.on(new) и теряет события.
+  const map = useMap();
   const cbRef = React.useRef(onMapClick);
-  React.useEffect(() => { cbRef.current = onMapClick; });
-  const handler = React.useCallback((e) => { cbRef.current(e.latlng); }, []);
-  useMapEvent('click', handler);
+  cbRef.current = onMapClick; // синхронно, без useEffect — всегда актуально
+
+  React.useEffect(() => {
+    const handler = (e) => cbRef.current(e.latlng);
+    map.on('click', handler);
+    return () => { map.off('click', handler); };
+  }, [map]); // только map — стабильная ссылка, регистрируем один раз
+
   return null;
 }
 
