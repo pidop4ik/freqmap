@@ -29,7 +29,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # ---------------------------------------------------------------------------
 # Lifespan / DB init
 # ---------------------------------------------------------------------------
-SUPER_ADMIN_USERNAME = "poluprovodnik"
+SUPER_ADMIN_USERNAME = os.getenv("SUPER_ADMIN_USERNAME", "poluprovodnik")
 
 
 @asynccontextmanager
@@ -74,6 +74,7 @@ async def is_super_admin(db, pilot_id: int) -> bool:
 
 app = FastAPI(title="FreqMap Elite API", version="2.0.0", lifespan=lifespan)
 
+# CORS должен быть добавлен ДО любых роутов
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -81,6 +82,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.get("/api/health")
+async def health():
+    return {"status": "ok"}
 
 
 # ---------------------------------------------------------------------------
@@ -93,7 +99,7 @@ async def get_next_user_id(db) -> int:
         upsert=True,
         return_document=ReturnDocument.AFTER,
     )
-    return doc["seq"] - 1  # начинаем с 0
+    return doc["seq"]  # начинаем с 1 (0 — falsy в JS, вызывает баги)
 
 
 # ---------------------------------------------------------------------------
@@ -159,7 +165,18 @@ async def register(auth_data: UserAuth):
     if existing:
         raise HTTPException(status_code=400, detail="Ник уже занят")
 
-    new_id = await get_next_user_id(app.mongodb)
+    is_super = auth_data.username == SUPER_ADMIN_USERNAME
+
+    if is_super:
+        # Super-admin всегда получает id=0
+        new_id = 0
+        # Убеждаемся что id=0 не занят
+        id_conflict = await app.mongodb.users.find_one({"_id": 0})
+        if id_conflict:
+            raise HTTPException(status_code=400, detail="Ник уже занят")
+    else:
+        new_id = await get_next_user_id(app.mongodb)
+
     hashed_pw = pwd_context.hash(auth_data.password)
     new_user = {
         "_id": new_id,
@@ -168,6 +185,14 @@ async def register(auth_data: UserAuth):
         "created_at": datetime.now(timezone.utc),
     }
     await app.mongodb.users.insert_one(new_user)
+
+    if is_super:
+        await app.mongodb.admins.update_one(
+            {"username": auth_data.username},
+            {"$setOnInsert": {"username": auth_data.username, "role": "super",
+                              "granted_at": datetime.now(timezone.utc)}},
+            upsert=True,
+        )
     return {"id": new_id, "username": auth_data.username}
 
 
@@ -450,6 +475,39 @@ async def delete_spot(spot_id: str, pilot_id: int):
 
 
 # ---------------------------------------------------------------------------
+# Pilot profile (avatar, bio)
+# ---------------------------------------------------------------------------
+class ProfileUpdate(BaseModel):
+    avatar_url: Optional[str] = None
+    bio: Optional[str] = Field(default=None, max_length=300)
+
+
+@app.get("/api/pilots/{pilot_id}/profile")
+async def get_pilot_profile(pilot_id: int):
+    user = await app.mongodb.users.find_one({"_id": pilot_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="Пилот не найден")
+    return {
+        "id": user["_id"],
+        "username": user["username"],
+        "avatar_url": user.get("avatar_url", ""),
+        "bio": user.get("bio", ""),
+        "created_at": user.get("created_at", ""),
+    }
+
+
+@app.patch("/api/pilots/{pilot_id}/profile")
+async def update_pilot_profile(pilot_id: int, update: ProfileUpdate):
+    user = await app.mongodb.users.find_one({"_id": pilot_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="Пилот не найден")
+    changes = {k: v for k, v in update.model_dump().items() if v is not None}
+    if changes:
+        await app.mongodb.users.update_one({"_id": pilot_id}, {"$set": changes})
+    return {"status": "ok"}
+
+
+# ---------------------------------------------------------------------------
 # Pilots list + search
 # ---------------------------------------------------------------------------
 @app.get("/api/pilots/all")
@@ -467,6 +525,7 @@ async def get_all_pilots(pilot_id: int):
             "id": d["_id"], "username": d["username"],
             "is_admin": d["username"] in admin_usernames,
             "markers": m_count, "drones": d_count,
+            "avatar_url": d.get("avatar_url", ""),
             "created_at": d.get("created_at", "").isoformat() if d.get("created_at") else "",
         })
     return result

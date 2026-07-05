@@ -4,7 +4,7 @@ import {
   Send, ChevronLeft, UserMinus, Search,
 } from 'lucide-react';
 
-const API = 'http://localhost:8000/api';
+const API = import.meta.env.VITE_API_BASE ?? '/api';
 
 // ---------------------------------------------------------------------------
 // helpers
@@ -22,7 +22,7 @@ const fmt = (iso) => {
 // ---------------------------------------------------------------------------
 // Main ChatSheet
 // ---------------------------------------------------------------------------
-export default function ChatSheet({ pilotId, username, lang, t, markers, onClose, onUnreadChange }) {
+export default function ChatSheet({ pilotId, username, lang, t, markers, onClose, onUnreadChange, isAdmin }) {
   const [tab, setTab] = useState('friends'); // 'friends' | 'dm' | 'location'
   const [friendsData, setFriendsData] = useState({ friends: [], incoming: [], outgoing: [] });
   const [activeDM, setActiveDM] = useState(null);   // { id, username }
@@ -121,6 +121,15 @@ export default function ChatSheet({ pilotId, username, lang, t, markers, onClose
               <MessageCircle size={15} />
               {t.messages ?? 'Messages'}
             </button>
+            {isAdmin && (
+              <button
+                className={`chat-tab${tab === 'write' ? ' chat-tab--active' : ''}`}
+                onClick={() => setTab('write')}
+              >
+                <Send size={15} />
+                {t.write_message ?? 'Write'}
+              </button>
+            )}
             <button
               className={`chat-tab${tab === 'location' ? ' chat-tab--active' : ''}`}
               onClick={() => setTab('location')}
@@ -145,6 +154,13 @@ export default function ChatSheet({ pilotId, username, lang, t, markers, onClose
                 pilotId={pilotId}
                 friends={friendsData.friends}
                 onOpen={(f) => setActiveDM(f)}
+                t={t}
+              />
+            )}
+            {tab === 'write' && isAdmin && (
+              <AdminWriteTab
+                pilotId={pilotId}
+                onOpenDM={(f) => { setActiveDM(f); }}
                 t={t}
               />
             )}
@@ -597,6 +613,73 @@ function LocationThread({ pilotId, username, marker, t }) {
           <Send size={16} />
         </button>
       </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// AdminWriteTab — admin writes to any pilot without being friends
+// ---------------------------------------------------------------------------
+function AdminWriteTab({ pilotId, onOpenDM, t }) {
+  const [search, setSearch] = React.useState('');
+  const [results, setResults] = React.useState(null);
+  const [searching, setSearching] = React.useState(false);
+
+  const doSearch = async () => {
+    if (!search.trim()) return;
+    setSearching(true);
+    setResults(null);
+    try {
+      const r = await fetch(`${API}/pilots/search?q=${encodeURIComponent(search.trim())}`);
+      if (!r.ok) { setResults([]); return; }
+      const data = await r.json();
+      setResults(data.filter((p) => p.id !== pilotId));
+    } catch {
+      setResults([]);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  return (
+    <div className="friends-tab">
+      <div className="friends-search">
+        <div className="friends-search__input-wrap">
+          <Search size={14} className="friends-search__icon" />
+          <input
+            className="friends-search__input"
+            placeholder={t.search_pilots ?? 'Search by callsign...'}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) doSearch(); }}
+          />
+        </div>
+        <button className="btn-primary btn-primary--sm" onClick={doSearch} disabled={searching}>
+          {searching ? '...' : (t.find ?? 'Find')}
+        </button>
+      </div>
+      {results !== null && results.length === 0 && (
+        <p className="empty-text">{t.pilot_not_found ?? 'Pilot not found'}</p>
+      )}
+      {results && results.length > 0 && (
+        <div className="friends-search-results">
+          {results.map((p) => (
+            <div key={p.id} className="friend-row">
+              <div className="friend-row__info">
+                <span className="friend-row__id">#{p.id}</span>
+                <span className="friend-row__name">{p.username}</span>
+              </div>
+              <button
+                className="btn-icon btn-icon--sm"
+                onClick={() => onOpenDM(p)}
+                title={t.write_message ?? 'Write'}
+              >
+                <MessageCircle size={15} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

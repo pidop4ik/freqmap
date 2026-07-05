@@ -124,11 +124,37 @@ export const DIGITAL_SYSTEMS = {
 export const CONFLICT_THRESHOLD_MHZ = 40;
 
 /**
+ * Радиус помех (метры) в зависимости от мощности передатчика (mW).
+ * Конфликт возникает только если оба пилота находятся в пределах
+ * суммы своих радиусов — то есть их зоны перекрываются.
+ */
+export function getConflictRadius(power_mw) {
+  const p = power_mw || 200;
+  if (p <= 25)   return 100;
+  if (p <= 100)  return 200;
+  if (p <= 200)  return 300;
+  if (p <= 400)  return 450;
+  if (p <= 600)  return 550;
+  if (p <= 800)  return 650;
+  return 800; // 1000 mW+
+}
+
+/**
+ * Расстояние между двумя точками в метрах (формула Гаверсина).
+ */
+export function distanceMeters(latA, lngA, latB, lngB) {
+  const R = 6371000;
+  const dLat = (latB - latA) * Math.PI / 180;
+  const dLng = (lngB - lngA) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(latA * Math.PI / 180) * Math.cos(latB * Math.PI / 180) *
+    Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+/**
  * Возвращает частоту по системе / band + channel
- * @param {'analog'|'digital'} type
- * @param {string} systemOrBand  — для аналога: ключ ANALOG_BANDS, для цифры: ключ DIGITAL_SYSTEMS
- * @param {number} channel — 1..8
- * @returns {number|null}
  */
 export function getFrequency(type, systemOrBand, channel) {
   if (type === 'analog') {
@@ -139,9 +165,6 @@ export function getFrequency(type, systemOrBand, channel) {
 
 /**
  * Проверяет конфликт двух частот (< CONFLICT_THRESHOLD_MHZ МГц разница)
- * @param {number|null} freqA
- * @param {number|null} freqB
- * @returns {boolean}
  */
 export function hasFrequencyConflict(freqA, freqB) {
   if (!freqA || !freqB) return false;
@@ -149,20 +172,42 @@ export function hasFrequencyConflict(freqA, freqB) {
 }
 
 /**
- * Среди маркеров находит все пары с конфликтом частот
- * Возвращает Set из marker id-ов, у которых есть конфликт
- * @param {Array} markers
- * @returns {Set<string>}
+ * Находит все маркеры с конфликтом частот.
+ * Конфликт = одинаковая частота (< 40 MHz разница) И зоны помех перекрываются
+ * (расстояние < сумма радиусов обоих передатчиков).
+ * Возвращает Map: marker.id → Set<conflicting marker.id> для подробного отображения.
  */
 export function findConflictingMarkers(markers) {
   const conflictIds = new Set();
   for (let i = 0; i < markers.length; i++) {
     for (let j = i + 1; j < markers.length; j++) {
-      const freqA = markers[i].drone?.frequency_mhz;
-      const freqB = markers[j].drone?.frequency_mhz;
-      if (hasFrequencyConflict(freqA, freqB)) {
-        conflictIds.add(markers[i].id);
-        conflictIds.add(markers[j].id);
+      const mA = markers[i];
+      const mB = markers[j];
+      const freqA = mA.drone?.frequency_mhz;
+      const freqB = mB.drone?.frequency_mhz;
+
+      if (!hasFrequencyConflict(freqA, freqB)) continue;
+
+      // Проверяем пересечение зон помех по расстоянию
+      const latA = mA.coordinates?.lat;
+      const lngA = mA.coordinates?.lng;
+      const latB = mB.coordinates?.lat;
+      const lngB = mB.coordinates?.lng;
+
+      if (latA == null || latB == null) {
+        // Нет координат — считаем конфликт только по частоте
+        conflictIds.add(mA.id);
+        conflictIds.add(mB.id);
+        continue;
+      }
+
+      const dist = distanceMeters(latA, lngA, latB, lngB);
+      const radiusA = getConflictRadius(mA.drone?.power_mw);
+      const radiusB = getConflictRadius(mB.drone?.power_mw);
+
+      if (dist < radiusA + radiusB) {
+        conflictIds.add(mA.id);
+        conflictIds.add(mB.id);
       }
     }
   }
