@@ -147,6 +147,11 @@ const i18n = {
     admin_markers: 'меток',
     admin_drones: 'дронов',
     admin_badge: 'ADMIN',
+    creator_badge: 'CREATOR',
+    write_message: 'Написать',
+    gps_searching: 'Поиск GPS...',
+    gps_found: 'Найдено',
+    gps_error: 'GPS недоступен',
     chat: 'Чат',
     friends: 'Друзья',
     messages: 'Сообщения',
@@ -226,6 +231,11 @@ const i18n = {
     admin_markers: 'markers',
     admin_drones: 'drones',
     admin_badge: 'ADMIN',
+    creator_badge: 'CREATOR',
+    write_message: 'Message',
+    gps_searching: 'Searching GPS...',
+    gps_found: 'Found',
+    gps_error: 'GPS unavailable',
     chat: 'Chat',
     friends: 'Friends',
     messages: 'Messages',
@@ -305,6 +315,11 @@ const i18n = {
     admin_markers: 'znaczników',
     admin_drones: 'dronów',
     admin_badge: 'ADMIN',
+    creator_badge: 'CREATOR',
+    write_message: 'Napisz',
+    gps_searching: 'Szukam GPS...',
+    gps_found: 'Znaleziono',
+    gps_error: 'GPS niedostępny',
     chat: 'Czat',
     friends: 'Znajomi',
     messages: 'Wiadomości',
@@ -1009,14 +1024,38 @@ export default function App() {
     };
   }, []);
 
+  const [gpsState, setGpsState] = React.useState(null); // null | 'searching' | { acc: number } | 'error'
+  const gpsWatchRef = React.useRef(null);
+
   const locateMe = () => {
-    if (navigator.geolocation) {
+    if (!navigator.geolocation) { setGpsState('error'); return; }
+    // Если уже следим — просто центрируем
+    if (gpsWatchRef.current != null) {
       navigator.geolocation.getCurrentPosition(
-        (p) => { setMapCenter([p.coords.latitude, p.coords.longitude]); setMapZoom(15); },
-        (err) => console.error('[FreqMap] geo error:', err.message)
+        (p) => { setMapCenter([p.coords.latitude, p.coords.longitude]); setMapZoom(17); },
+        () => {}
       );
+      return;
     }
+    setGpsState('searching');
+    // Используем watchPosition для точного определения
+    gpsWatchRef.current = navigator.geolocation.watchPosition(
+      (p) => {
+        setMapCenter([p.coords.latitude, p.coords.longitude]);
+        setMapZoom(17);
+        setGpsState({ acc: Math.round(p.coords.accuracy) });
+      },
+      (err) => { setGpsState('error'); gpsWatchRef.current = null; },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+    );
   };
+
+  // Очищаем watch при размонтировании
+  React.useEffect(() => {
+    return () => {
+      if (gpsWatchRef.current != null) navigator.geolocation.clearWatch(gpsWatchRef.current);
+    };
+  }, []);
 
   const switchLang = (l) => {
     setLang(l);
@@ -1442,7 +1481,9 @@ export default function App() {
                 {t.settings}
                 {demoMode && <span className="demo-tag">demo</span>}
               </h2>
-              {(isAdmin || serverAdmin) && <span className="admin-badge">{t.admin_badge}</span>}
+              {pilotId === 0
+                ? <span className="creator-badge">{t.creator_badge ?? 'CREATOR'}</span>
+                : (isAdmin || serverAdmin) && <span className="admin-badge">{t.admin_badge}</span>}
             </div>
           </div>
 
@@ -1789,6 +1830,7 @@ export default function App() {
           lang={lang}
           t={t}
           markers={markers}
+          isAdmin={isAdmin || serverAdmin || serverSuper}
           onClose={() => { setActiveView('map'); setUnreadCount(0); }}
           onUnreadChange={(count) => {
             if (typeof count === 'number') setUnreadCount(count);
@@ -1809,7 +1851,18 @@ export default function App() {
           <NavItem icon={User} label={t.profile} active={activeView === 'profile'} onClick={() => setActiveView('profile')} />
 
           <div className="fab-wrapper">
-            <button onClick={locateMe} className="fab-btn" aria-label="My location">
+            {gpsState && gpsState !== 'error' && (
+              <div className="gps-indicator">
+                {gpsState === 'searching'
+                  ? (t.gps_searching ?? 'GPS...')
+                  : `±${gpsState.acc}m`}
+              </div>
+            )}
+            <button
+              onClick={locateMe}
+              className={`fab-btn${gpsState && gpsState !== 'error' ? ' fab-btn--active' : ''}`}
+              aria-label="My location"
+            >
               <Crosshair size={24} color="#1d1b20" />
             </button>
           </div>
