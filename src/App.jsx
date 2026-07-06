@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Map as MapIcon, User, Settings, Crosshair, Globe, Trash2, Plus, AlertTriangle, Radio, ExternalLink, Maximize2, Zap, Weight, Pencil, ChevronDown, ChevronUp, Cpu, Info, Save, ShieldCheck, UserX, Heart, MessageCircle, MapPin } from 'lucide-react';
@@ -88,6 +88,27 @@ const DroneConflictIcon = makeSvgIcon(`
   </g>
 </svg>`, 44, [22, 22]);
 
+// Approved flying spot icon (pin style)
+const SpotIcon = makeSvgIcon(`
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 44" width="36" height="36">
+  <defs>
+    <filter id="glow-s" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <g filter="url(#glow-s)">
+    <path d="M22 4C14.8 4 9 9.8 9 17c0 10 13 23 13 23s13-13 13-23c0-7.2-5.8-13-13-13z" fill="#4ade80" opacity="0.95"/>
+    <circle cx="22" cy="17" r="5.5" fill="#1d1b20"/>
+  </g>
+</svg>`, 36, [18, 36]);
+
+// Live "you are here" dot — Google Maps style, follows accent color
+const MyLocationIcon = makeSvgIcon(`
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="22" height="22">
+  <circle cx="20" cy="20" r="9" fill="var(--accent)" stroke="#ffffff" stroke-width="3"/>
+</svg>`, 22, [11, 11]);
+
 // Fix Leaflet default icon (fallback)
 const DefaultIcon = L.icon({
   iconUrl: icon,
@@ -107,7 +128,7 @@ const ConflictIcon = L.icon({
 });
 
 // Читаем из env (VITE_API_BASE=https://your-vps.com/api) или fallback на /api
-// При dev без env — vite proxy перенаправляет /api → http://localhost:8000/api
+// При dev без env — vite proxy перенаправляет /api → /api
 const API_BASE = import.meta.env.VITE_API_BASE ?? '/api';
 
 // ---------------------------------------------------------------------------
@@ -510,6 +531,7 @@ export default function App() {
   const [authError, setAuthError] = useState('');
 
   const [markers, setMarkers] = useState([]);
+  const [spots, setSpots] = useState([]);
   const [drones, setDrones] = useState([]);
   const [selectedDroneId, setSelectedDroneId] = useState('');
   const [flightDuration, setFlightDuration] = useState(2);
@@ -559,6 +581,9 @@ export default function App() {
 
   // Unread chat badge
   const [unreadCount, setUnreadCount] = useState(0);
+  const [chatInThread, setChatInThread] = useState(false);
+  const [myPosition, setMyPosition] = useState(null); // { lat, lng, accuracy }
+  const watchIdRef = useRef(null);
 
   // Demo mode: бэкенд недоступен
   const [demoMode, setDemoMode] = useState(false);
@@ -633,6 +658,10 @@ export default function App() {
       const resM = await fetch(`${API_BASE}/markers`);
       if (resM.ok) {
         setMarkers(await resM.json());
+      }
+      const resS = await fetch(`${API_BASE}/spots?status=approved`);
+      if (resS.ok) {
+        setSpots(await resS.json());
       }
       if (id != null) {
         const resD = await fetch(`${API_BASE}/pilots/${id}/drones`);
@@ -1022,11 +1051,45 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      (p) => {
+        setMyPosition({
+          lat: p.coords.latitude,
+          lng: p.coords.longitude,
+          accuracy: p.coords.accuracy,
+        });
+      },
+      (err) => console.error('[FreqMap] geo watch error:', err.message),
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
+    );
+    return () => {
+      if (watchIdRef.current != null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+      }
+    };
+  }, []);
+
   const locateMe = () => {
+    if (myPosition) {
+      setMapCenter([myPosition.lat, myPosition.lng]);
+      setMapZoom(17);
+      return;
+    }
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (p) => { setMapCenter([p.coords.latitude, p.coords.longitude]); setMapZoom(15); },
-        (err) => console.error('[FreqMap] geo error:', err.message)
+        (p) => {
+          setMyPosition({
+            lat: p.coords.latitude,
+            lng: p.coords.longitude,
+            accuracy: p.coords.accuracy,
+          });
+          setMapCenter([p.coords.latitude, p.coords.longitude]);
+          setMapZoom(17);
+        },
+        (err) => console.error('[FreqMap] geo error:', err.message),
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
     }
   };
@@ -1190,6 +1253,19 @@ export default function App() {
             }}
           />
 
+          {myPosition && (
+            <>
+              {myPosition.accuracy && (
+                <Circle
+                  center={[myPosition.lat, myPosition.lng]}
+                  radius={myPosition.accuracy}
+                  pathOptions={{ color: 'var(--accent)', fillColor: 'var(--accent)', fillOpacity: 0.12, weight: 1 }}
+                />
+              )}
+              <Marker position={[myPosition.lat, myPosition.lng]} icon={MyLocationIcon} zIndexOffset={1000} />
+            </>
+          )}
+
           {markers.map((m) => {
             const isConflict = conflictIds.has(m.id);
             return (
@@ -1253,6 +1329,33 @@ export default function App() {
               </Marker>
             );
           })}
+
+          {spots.map((s) => (
+            <Marker key={`spot-${s.id}`} position={[s.lat, s.lng]} icon={SpotIcon}>
+              <Popup>
+                <div className="popup-content">
+                  <div className="popup-header">
+                    <span className="popup-pilot">{s.name}</span>
+                  </div>
+                  {s.description && (
+                    <div className="popup-rows">
+                      <div className="popup-row">
+                        <span>{s.description}</span>
+                      </div>
+                    </div>
+                  )}
+                  {s.tags?.length > 0 && (
+                    <div className="popup-rows">
+                      <div className="popup-row">
+                        <span className="popup-row-label">Tags</span>
+                        <span>{s.tags.join(', ')}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </Popup>
+            </Marker>
+          ))}
         </MapContainer>
       </div>
 
@@ -1559,7 +1662,7 @@ export default function App() {
               </div>
               <div className="about-row">
                 <span className="about-row__label">{t.about_version}</span>
-                <span className="about-row__value">1.0.0</span>
+                <span className="about-row__value">1.0.1</span>
               </div>
             </div>
             <button
@@ -1804,17 +1907,18 @@ export default function App() {
           onUnreadChange={(count) => {
             if (typeof count === 'number') setUnreadCount(count);
             else {
-              fetch(`http://localhost:8000/api/messages/${pilotId}/unread/count`)
+              fetch(`/api/messages/${pilotId}/unread/count`)
                 .then((r) => r.ok ? r.json() : { count: 0 })
                 .then(({ count: c }) => setUnreadCount(c))
                 .catch(() => {});
             }
           }}
+          onThreadChange={setChatInThread}
         />
       )}
 
       {/* BOTTOM NAV */}
-      <nav className="bottom-nav" aria-label="Main navigation">
+      <nav className={`bottom-nav${chatInThread ? ' bottom-nav--hidden' : ''}`} aria-label="Main navigation">
         <div className="bottom-nav__inner">
           <NavItem icon={MapIcon} label={t.map} active={activeView === 'map'} onClick={() => setActiveView('map')} />
           <NavItem icon={User} label={t.profile} active={activeView === 'profile'} onClick={() => setActiveView('profile')} />
@@ -1838,6 +1942,12 @@ export default function App() {
             active={activeView === 'settings'}
             onClick={() => setActiveView('settings')}
             badge={conflictIds.size > 0 ? conflictIds.size : null}
+          />
+          <NavItem
+            icon={Heart}
+            label={t.donate ?? 'Donate'}
+            active={activeView === 'donate'}
+            onClick={() => setActiveView('donate')}
           />
         </div>
       </nav>

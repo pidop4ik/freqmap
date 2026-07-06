@@ -1,6 +1,6 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Camera, User } from 'lucide-react';
-import { getAvatar, setAvatar } from './avatarStorage.js';
+import { getAvatar, setAvatar, fetchAvatar } from './avatarStorage.js';
 
 /**
  * AvatarPicker — circular editable avatar.
@@ -14,6 +14,17 @@ export default function AvatarPicker({ pilotId, size = 80, editable = true }) {
   const [src, setSrc] = useState(() => getAvatar(pilotId));
   const [hover, setHover] = useState(false);
   const inputRef = useRef(null);
+
+  // Always confirm/refresh avatar from the server — needed to see other
+  // pilots' avatars (no local cache exists for them) and to pick up changes
+  // made on another device.
+  useEffect(() => {
+    let cancelled = false;
+    fetchAvatar(pilotId).then((remote) => {
+      if (!cancelled && remote) setSrc(remote);
+    });
+    return () => { cancelled = true; };
+  }, [pilotId]);
 
   function handleFile(e) {
     const file = e.target.files?.[0];

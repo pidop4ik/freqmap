@@ -82,6 +82,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/api/health")
+async def health_check():
+    return {"status": "ok"}
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -323,6 +327,28 @@ async def check_admin(pilot_id: int):
     return {"is_admin": adm, "is_super": sup}
 
 
+# ---------------------------------------------------------------------------
+# Avatar (per-pilot, stored as base64 data URL)
+# ---------------------------------------------------------------------------
+class AvatarUpdate(BaseModel):
+    avatar: str
+
+@app.put("/api/pilots/{pilot_id}/avatar")
+async def update_avatar(pilot_id: int, payload: AvatarUpdate):
+    pilot = await app.mongodb.users.find_one({"_id": pilot_id})
+    if not pilot:
+        raise HTTPException(status_code=404, detail="Пилот не найден")
+    await app.mongodb.users.update_one({"_id": pilot_id}, {"$set": {"avatar": payload.avatar}})
+    return {"status": "ok"}
+
+@app.get("/api/pilots/{pilot_id}/avatar")
+async def get_avatar(pilot_id: int):
+    pilot = await app.mongodb.users.find_one({"_id": pilot_id}, {"avatar": 1})
+    if not pilot:
+        raise HTTPException(status_code=404, detail="Пилот не найден")
+    return {"avatar": pilot.get("avatar")}
+
+# ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
 # Stats endpoint (admin dashboard)
 # ---------------------------------------------------------------------------

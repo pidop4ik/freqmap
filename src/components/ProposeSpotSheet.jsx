@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { MapPin, Check } from 'lucide-react';
 
-const API = 'http://localhost:8000/api';
+const API = '/api';
 
 const TAG_OPTIONS = ['park', 'field', 'forest', 'urban', 'water', 'hills', 'training', 'race'];
 

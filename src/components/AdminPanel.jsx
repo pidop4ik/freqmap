@@ -4,7 +4,7 @@ import {
   UserX, UserCheck, RefreshCw, ChevronDown, ChevronUp, AlertTriangle
 } from 'lucide-react';
 
-const API = 'http://localhost:8000/api';
+const API = '/api';
 
 // ---------------------------------------------------------------------------
 // Stat card

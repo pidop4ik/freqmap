@@ -3,8 +3,9 @@ import {
   UserPlus, Check, Ban, MessageCircle, Users, Radio,
   Send, ChevronLeft, UserMinus, Search,
 } from 'lucide-react';
+import AvatarPicker from './AvatarPicker.jsx';
 
-const API = 'http://localhost:8000/api';
+const API = '/api';
 
 // ---------------------------------------------------------------------------
 // helpers
@@ -22,11 +23,19 @@ const fmt = (iso) => {
 // ---------------------------------------------------------------------------
 // Main ChatSheet
 // ---------------------------------------------------------------------------
-export default function ChatSheet({ pilotId, username, lang, t, markers, onClose, onUnreadChange }) {
+export default function ChatSheet({ pilotId, username, lang, t, markers, onClose, onUnreadChange, onThreadChange }) {
   const [tab, setTab] = useState('friends'); // 'friends' | 'dm' | 'location'
   const [friendsData, setFriendsData] = useState({ friends: [], incoming: [], outgoing: [] });
   const [activeDM, setActiveDM] = useState(null);   // { id, username }
   const [activeLocation, setActiveLocation] = useState(null); // marker object
+
+  const isInner = activeDM || activeLocation;
+
+  useEffect(() => {
+    onThreadChange?.(!!isInner);
+    return () => onThreadChange?.(false);
+  }, [isInner, onThreadChange]);
+
 
   const refreshFriends = useCallback(async () => {
     try {
@@ -59,10 +68,8 @@ export default function ChatSheet({ pilotId, username, lang, t, markers, onClose
     setActiveLocation(null);
   };
 
-  const isInner = activeDM || activeLocation;
-
   return (
-    <div className="fullscreen-tab chat-sheet">
+    <div className={`fullscreen-tab chat-sheet${isInner ? ' chat-sheet--thread' : ''}`}>
       {/* Header */}
       <div className="tab-header">
         <div className="chat-sheet__header-left">
@@ -297,6 +304,7 @@ function FriendsTab({ pilotId, friendsData, refresh, onOpenDM, t }) {
           {friendsData.incoming.map((req) => (
             <div key={req.id} className="friend-row friend-row--request">
               <div className="friend-row__info">
+                <AvatarPicker pilotId={req.from_id} size={28} editable={false} />
                 <span className="friend-row__id">#{req.from_id}</span>
                 <span className="friend-row__name">{req.username}</span>
               </div>
@@ -334,6 +342,7 @@ function FriendsTab({ pilotId, friendsData, refresh, onOpenDM, t }) {
         {friendsData.friends.map((f) => (
           <div key={f.id} className="friend-row">
             <div className="friend-row__info">
+              <AvatarPicker pilotId={f.id} size={28} editable={false} />
               <span className="friend-row__id">#{f.id}</span>
               <span className="friend-row__name">{f.username}</span>
             </div>
@@ -376,7 +385,7 @@ function DMListTab({ pilotId, friends, onOpen, t }) {
     <div className="dm-list">
       {friends.map((f) => (
         <button key={f.id} className="dm-list__item" onClick={() => onOpen(f)}>
-          <div className="dm-list__avatar">{f.username[0].toUpperCase()}</div>
+          <div className="dm-list__avatar"><AvatarPicker pilotId={f.id} size={38} editable={false} /></div>
           <div className="dm-list__info">
             <span className="dm-list__name">{f.username}</span>
             <span className="dm-list__sub">#{f.id}</span>

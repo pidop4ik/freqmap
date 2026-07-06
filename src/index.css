@@ -463,20 +463,28 @@ select.field-input {
   display: flex;
   justify-content: center;
   z-index: 500;
+  transition: opacity 0.15s, transform 0.15s;
+}
+
+.bottom-nav--hidden {
+  opacity: 0;
+  transform: translateY(24px);
+  pointer-events: none;
 }
 
 .bottom-nav__inner {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 2px;
   background: rgba(30, 28, 34, 0.88);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   border: 1px solid var(--border);
   border-radius: 32px;
-  padding: 8px 16px;
-  width: 90%;
-  max-width: 420px;
+  padding: 8px 10px;
+  width: 96%;
+  max-width: 480px;
   box-shadow: 0 8px 32px rgba(0,0,0,0.5);
 }
 
@@ -484,14 +492,16 @@ select.field-input {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 6px 10px;
+  gap: 3px;
+  padding: 6px 6px;
   border-radius: 14px;
   border: none;
   background: transparent;
   cursor: pointer;
   color: var(--text-muted);
   transition: background 0.15s, color 0.15s;
+  flex-shrink: 1;
+  min-width: 0;
 }
 .nav-item:hover { color: var(--text); }
 .nav-item--active {
@@ -505,9 +515,10 @@ select.field-input {
 }
 
 .nav-item__label {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 500;
-  letter-spacing: 0.2px;
+  letter-spacing: 0.1px;
+  white-space: nowrap;
 }
 
 .nav-badge {
@@ -528,11 +539,12 @@ select.field-input {
 .fab-wrapper {
   position: relative;
   top: -14px;
+  flex-shrink: 0;
 }
 
 .fab-btn {
-  width: 56px;
-  height: 56px;
+  width: 50px;
+  height: 50px;
   border-radius: 50%;
   background: var(--accent);
   border: 4px solid var(--bg);
@@ -2026,6 +2038,10 @@ select.field-input {
   flex-direction: column;
 }
 
+.chat-sheet--thread {
+  padding-bottom: 0;
+}
+
 .chat-sheet .tab-header {
   padding: 0 20px;
   flex-shrink: 0;
@@ -2328,8 +2344,7 @@ select.field-input {
   display: flex;
   flex-direction: column;
   flex: 1;
-  /* fills remaining height inside the fullscreen-tab flex column */
-  height: calc(100dvh - 130px);
+  min-height: 0;
 }
 
 .chat-thread__messages {
